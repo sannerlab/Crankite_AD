@@ -12,7 +12,8 @@
 #include<float.h>
 #include<math.h>
 
-#include"canonicalAA.h"
+//#include"canonicalAA.h"
+#include"rotamers.h"
 #include"error.h"
 #include"params.h"
 #include"vector.h"
@@ -22,8 +23,18 @@
 #include"vdw.h"
 #include"energy.h"
 
+double centerX, centerY, centerZ, spacing;
+int NX, NY, NZ;
+double targetBest, currTargetEnergy;
+double *gridmapvalues[9];
+double *emapvalues;
+double *dmapvalues;
 
-
+int transPtsCount;
+double *Xpts;
+double *Ypts;
+double *Zpts;
+double *ramaprob, *alaprob, *glyprob;
 
 #ifndef max
 #define max(a,b) (((a) > (b)) ? (a) : (b))
@@ -2036,15 +2047,23 @@ double scoreSideChainNoClashNew(AA *a, double* setCoords, int ind, int numRand)
   int *atypes2 = _AASCRotTable[a->sideChainTemplateIndex].atypes;
   double **coords2 = _AASCRotTable[a->sideChainTemplateIndex].coords;
 
-  int isHis = a->sideChainTemplateIndex==6 || a->sideChainTemplateIndex==18 || a->sideChainTemplateIndex==19;
-  if (isHis) { // HIS or HIE or HID
-    charges = _AASCRotTable[18].charges; // HIE
-    atypes = _AASCRotTable[18].atypes;
-    coords = _AASCRotTable[18].coords;
+  // MS this is brittle as is depend on the order of the rotamers in rotamers.lib
+  //int isHis = a->sideChainTemplateIndex==6 || a->sideChainTemplateIndex==7 || a->sideChainTemplateIndex==8;
 
-    charges2 = _AASCRotTable[19].charges; // HID
-    atypes2 = _AASCRotTable[19].atypes;
-    coords2 = _AASCRotTable[19].coords;
+  // MS maybe we shoudl implement if input was 'h' we try HIE or HID, if input was h<HIE> we only try HIE
+  //  but for now the best one overwrites a->sideChainTemplateIndex
+  int isHis = strcmp(_AASCRotTable[a->sideChainTemplateIndex].name, "HIS")==0 || strcmp(_AASCRotTable[a->sideChainTemplateIndex].name, "HIE")==0 || strcmp(_AASCRotTable[a->sideChainTemplateIndex].name, "HID")==0;
+  int indHIE = getSideChainTemplateIndexFromName("HIE");
+  int indHID = getSideChainTemplateIndexFromName("HID");
+  if (isHis) { // HIS or HIE or HID
+    printf("FUGU5: trying HIE (%d) and HID (%d), isHis=%d\n", indHIE, indHID, isHis);
+    charges = _AASCRotTable[indHIE].charges; // HIE
+    atypes = _AASCRotTable[indHIE].atypes;
+    coords = _AASCRotTable[indHIE].coords;
+
+    charges2 = _AASCRotTable[indHID].charges; // HID
+    atypes2 = _AASCRotTable[indHID].atypes;
+    coords2 = _AASCRotTable[indHID].coords;
   } else {
     charges = _AASCRotTable[a->sideChainTemplateIndex].charges;
     atypes = _AASCRotTable[a->sideChainTemplateIndex].atypes;
@@ -2184,7 +2203,7 @@ double scoreSideChainNoClashNew(AA *a, double* setCoords, int ind, int numRand)
 	bestSideChainCenter[0] = sideChainCenter[0]/nbHeavyAtoms;
 	bestSideChainCenter[1] = sideChainCenter[1]/nbHeavyAtoms;
 	bestSideChainCenter[2] = sideChainCenter[2]/nbHeavyAtoms;
-	if (isHis) a->sideChainTemplateIndex=18;
+	if (isHis) a->sideChainTemplateIndex=indHIE;
       }
       if (isHis && score2 < bestScore) {
 	bestScore = score2;
@@ -2192,7 +2211,7 @@ double scoreSideChainNoClashNew(AA *a, double* setCoords, int ind, int numRand)
 	bestSideChainCenter[0] = sideChainCenter[0]/nbHeavyAtoms;
 	bestSideChainCenter[1] = sideChainCenter[1]/nbHeavyAtoms;
 	bestSideChainCenter[2] = sideChainCenter[2]/nbHeavyAtoms;
-	if (isHis) a->sideChainTemplateIndex=19;
+	if (isHis) a->sideChainTemplateIndex=indHID;
       }
     }
   }

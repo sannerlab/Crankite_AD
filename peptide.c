@@ -12,7 +12,8 @@
 #include<math.h>
 #include<float.h>
 
-#include"canonicalAA.h"
+//#include"canonicalAA.h"
+#include"rotamers.h"
 #include"error.h"
 #include"params.h"
 #include"aadict.h"

@@ -17,7 +17,8 @@
 #include"random16.h"
 #endif
 
-#include"canonicalAA.h"
+//#include"canonicalAA.h"
+#include"rotamers.h"
 #include"error.h"
 #include"params.h"
 #include"aadict.h"
@@ -1032,10 +1033,11 @@ int main(int argc, char *argv[])
             Biasmap *biasmap = (Biasmap *)malloc(sizeof(Biasmap));
       	    biasmap->distb = NULL;
 
-	    intialize_AASCRotTable();
-	    
-	   /* read in / generate the peptide */
-	   if (sim_params.seq != NULL) {
+	    //intialize_AASCRotTable();
+	    initialize_AASCRotTable_from_file();
+
+	    /* read in / generate the peptide */
+	    if (sim_params.seq != NULL) {
 
 		//if (sim_params.protein_model.external_constrained_aalist_file) {
 		//	stop("constraints unimplemented!");
