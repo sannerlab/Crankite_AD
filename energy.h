@@ -6,13 +6,15 @@
 ** Copyright (c) 2007 - 2013 Nikolas Burkoff, Csilla Varnai and David Wild
 */
 
+#ifndef ENERGYDEF
+#define ENERGYDEF
+
 /* CA-CA distance cutoff for vdW interactions */
 //extern const double vdw_cutoff2_without_use_gamma;
 //extern const double vdw_cutoff2_gg;
 //extern const double vdw_cutoff2_gng;
 /* CA-CA distance cutoff for Hbond interactions */
 extern const double hbond_cutoff;
-
 
 /* energy matrix and biasmap operations */
 void energy_matrix_calculate(Chain *,Biasmap *, model_params *mod_params);
@@ -26,25 +28,28 @@ void biasmap_initialise(Chain *,Biasmap *, model_params *mod_params);
 void biasmap_finalise(Biasmap *biasmap);
 
 
-double centerX, centerY, centerZ, spacing;
+extern double centerX, centerY, centerZ, spacing;
 //double *Nmapvalue, *Omapvalue, *CAmapvalue, *Hmapvalue, *Cmapvalue, *NAmapvalue, *Smapvalue, *emapvalue, *dmapvalue;
-int NX, NY, NZ;
-double targetBest, currTargetEnergy;
+extern int NX, NY, NZ;
+extern double targetBest, currTargetEnergy;
 //double totalEBest;
 double lower_gridenergy(double);
 void gridbox_initialise();
 void transpts_initialise();
-void ramaprob_initialise();
+void ramaprob_initialise(char *folder);
 
-double *gridmapvalues[9];
-double *emapvalues;
-double *dmapvalues;
+# define MAX_ATOM_TYPES 32
+extern const char atypes[MAX_ATOM_TYPES][3];
+extern double *gridmapvalues[MAX_ATOM_TYPES];
+extern int hasType[MAX_ATOM_TYPES];
+extern double *emapvalues;
+extern double *dmapvalues;
 
-int transPtsCount;
-double *Xpts;
-double *Ypts;
-double *Zpts;
-double *ramaprob, *alaprob, *glyprob;
+extern int transPtsCount;
+extern double *Xpts;
+extern double *Ypts;
+extern double *Zpts;
+extern double *ramaprob, *alaprob, *glyprob;
 
 void gridmap_initialise(char *, int);
 
@@ -92,3 +97,4 @@ double secondary_radius_of_gyration(int start, int end, Chain *chain, Chaint *ch
 void energy_probe_1(Chain *chain,Biasmap *biasmap,simulation_params *sim_params);
 void energy_contributions_in_energy_c(Chain * chain,Biasmap *biasmap, double tote, model_params *mod_params, FILE *outfile);
 void exclude_energy_contributions_in_energy_c(Chain * chain,Biasmap *biasmap, double tote, model_params *mod_params, FILE *outfile);
+#endif
