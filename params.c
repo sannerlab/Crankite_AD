@@ -25,6 +25,12 @@ void param_initialise(simulation_params *this) {
   /* general simulation */
   this->infile = stdin;
   this->outfile = stdout;
+#ifdef _WIN32
+  copy_string(&(this->data_folder), ".\\");
+#else
+  copy_string(&(this->data_folder), "./");
+#endif
+  copy_string(&(this->rotamer_lib), "rotamers.lib");
   this->infile_name = NULL;
   this->outfile_name = NULL;
   this->pace = 0;
