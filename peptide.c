@@ -12,7 +12,8 @@
 #include<math.h>
 #include<float.h>
 
-#include"canonicalAA.h"
+//#include"canonicalAA.h"
+#include"rotamers.h"
 #include"error.h"
 #include"params.h"
 #include"aadict.h"
@@ -1327,7 +1328,8 @@ int fullAApdbrecord( AA *a, int j, model_params *mod_params, FILE *outfile)
     char  atname[5];
     char fmt[] = "ATOM  %5d %4s XAA A9999    %8.3f%8.3f%8.3f\n";
     //fprintf(stderr,"%d ",a->chainid);
-    sprintf(fmt + 14, "%3s %c%4d", aa123(a->id), 'A' + a->chainid - 1, a->num & 0xFFF);
+    //sprintf(fmt + 14, "%3s %c%4d", aa123(a->id), 'A' + a->chainid - 1, a->num & 0xFFF);
+    sprintf(fmt + 14, "%3s %c%4d", _AASCRotTable[a->sideChainTemplateIndex].name, 'A' + a->chainid - 1, a->num & 0xFFF);
     fmt[23] = ' '; //icode?? MS
     //printf("%3s %c%4d ", aa123(a->id), 'A' + a->chainid - 1, a->num & 0xFFF);
     fprintf(outfile,fmt, ++j, " N  ", a->n[0], a->n[1], a->n[2]);
@@ -2286,8 +2288,16 @@ void mark_fixed_aa_from_file(Chain *chain, simulation_params *sim_params) {
 
   fprintf(stderr,"marking fixed amino acids from file %s\n",(sim_params->protein_model).fixed_aalist_file);
 
-  FILE *fptr = fopen((sim_params->protein_model).fixed_aalist_file, "r");
-  if (!fptr) stop("mark_fixed_aa_from_file: problems while opening constraint file");
+  char *buffer[254];
+  strcpy(buffer, sim_params->data_folder);
+  strcat(buffer, (sim_params->protein_model).fixed_aalist_file);
+  //FILE *fptr = fopen((sim_params->protein_model).fixed_aalist_file, "r");
+  FILE *fptr = fopen(buffer, "r");
+  if (!fptr) {
+    char msg[254];
+    sprintf(msg, "mark_fixed_aa_from_file: problems while opening constraint file %s", buffer);
+    stop(msg);
+  }
 
   fprintf(stderr, "Fixing amino acids:");
   int next;
@@ -2313,9 +2323,17 @@ void mark_constrained_aa_from_file(Chain *chain, simulation_params *sim_params) 
   if ((sim_params->protein_model).external_constrained_aalist_file) {
     fprintf(stderr,"1marking constrained amino acids from file %s\n",(sim_params->protein_model).external_constrained_aalist_file);
 
-    FILE *fptr = fopen((sim_params->protein_model).external_constrained_aalist_file, "r");
-    if (!fptr) stop("problems while opening constraint file");
-  
+    char *buffer[254];
+    strcpy(buffer, sim_params->data_folder);
+    strcat(buffer, (sim_params->protein_model).external_constrained_aalist_file);
+    
+    //FILE *fptr = fopen((sim_params->protein_model).external_constrained_aalist_file, "r");
+    FILE *fptr = fopen(buffer, "r");
+    if (!fptr) {
+      char msg[254];
+      sprintf(msg, "problems while opening file %s", buffer);
+      stop(msg);
+    }
     fprintf(stderr, "Constraining amino acids:");
     int next;
     while (fscanf(fptr,"%d",&next) > 0) {
