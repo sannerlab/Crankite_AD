@@ -11,13 +11,16 @@
 #include<time.h>
 #include<signal.h>
 #include<math.h>
+#include <dirent.h>
+#include <errno.h>
 
 #ifdef PARALLEL
 #include<mpi.h>
 #include"random16.h"
 #endif
 
-#include"canonicalAA.h"
+//#include"canonicalAA.h"
+#include"rotamers.h"
 #include"error.h"
 #include"params.h"
 #include"aadict.h"
@@ -40,6 +43,8 @@ Options:\n\
  -f infile            input PDB file with initial conformation\n\
  or SEQuenCE          peptide sequence in ALPHA and beta states\n\
  -o outfile           redirected output file\n\
+ -D dataFolder        folder containing data such rotamers.lib AD4.1_bound.dat ramaprob.data and constrains, default current folder\n\
+ -L rotamerLib        file containing side chain rotamers (default is rotamers.lib)\n\
  -a ACCEPTANCE        crankshaft rotation acceptance rate\n\
  -A AMPLITUDE,FIX_AMP crankshaft rotation amplitude and whether the amplitude should be kept fixed (default is no fixing) \n\
  -b BETA1-BETA2:INT   thermodynamic beta schedule\n\
@@ -669,144 +674,191 @@ char *read_options(int argc, char *argv[], simulation_params *sim_params)
 
 
 	for (i = 1; i < argc; i++) {
-		if (argv[i][0] != '-') {
-			//if (freopen(argv[i], "r", stdin) == NULL)
-			//try to open file
-			if ((sim_params->infile = fopen(argv[i],"r")) == NULL)
-				//failed: it must be a sequence
-				retval = argv[i];
-			else
-				if (sim_params->infile_name) free(sim_params->infile_name);
-				copy_string(&(sim_params->infile_name),argv[i]);
-			continue;
-		}
+	  if (argv[i][0] != '-') {
+	    //if (freopen(argv[i], "r", stdin) == NULL)
+	    //try to open file
+	    if ((sim_params->infile = fopen(argv[i],"r")) == NULL)
+	      //failed: it must be a sequence
+	      retval = argv[i];
+	    else
+	      if (sim_params->infile_name) free(sim_params->infile_name);
+	    copy_string(&(sim_params->infile_name),argv[i]);
+	    continue;
+	  }
 
-		opt = argv[i][1];
-		if (++i >= argc && opt != 'n')
-			opt = 0;
+	  opt = argv[i][1];
+	  if (++i >= argc && opt != 'n')
+	    opt = 0;
 
-		switch (opt) {
-		case 'a':
-			sscanf(argv[i], "%lf", &acceptance_rate);
-			if(acceptance_rate > 1.0 || acceptance_rate <= 0.0){
-			  fprintf(stderr,"Acceptance rate must be between 0.0 and 1.0, setting it to 0.5\n");
-			  acceptance_rate = 0.5; 	
-			}
-			sim_params->acceptance_rate = acceptance_rate;			
+	  switch (opt) {
+	    case 'a':
+	      sscanf(argv[i], "%lf", &acceptance_rate);
+	      if(acceptance_rate > 1.0 || acceptance_rate <= 0.0){
+		fprintf(stderr,"Acceptance rate must be between 0.0 and 1.0, setting it to 0.5\n");
+		acceptance_rate = 0.5; 	
+	      }
+	      sim_params->acceptance_rate = acceptance_rate;			
 			
-			break;
-		case 'A': //amplitude
-			sscanf(argv[i], "%lf,%d", &amplitude,&keep_amplitude_fixed);
-			if(amplitude > 0.0 || amplitude <= -M_PI){
-			  fprintf(stderr,"Amplitude must be between -PI and 0.0, setting it to -0.25\n");
-			  amplitude = -0.25;
-			}
-			sim_params->amplitude = amplitude;
-			sim_params->keep_amplitude_fixed = keep_amplitude_fixed;
-			break;
-		case 'b':
-			sscanf(argv[i], "%lf-%lf:%u,%u", &beta1, &beta2, &intrvl, &nswap_per_try);
-			sim_params->beta1 = beta1;
-			sim_params->beta2 = beta2;
-			sim_params->intrvl = intrvl;
-			sim_params->nswap_per_try = nswap_per_try;
-			break;
-		case 'c':
-			sscanf(argv[i],"%lf",&thermobeta);
-		    thermobeta = 298.0/(thermobeta+273.0);
-		    lowtemp = 1;
-			sim_params->thermobeta = thermobeta;
-			sim_params->lowtemp = lowtemp;
-			break;
-		case 'C':
-			sscanf(argv[i], "%d,%256s",&num_NS_per_checkpoint,checkpoint_filename);
-			checkpoint = 1;
-			sim_params->num_NS_per_checkpoint = num_NS_per_checkpoint;
-			sim_params->checkpoint_filename = realloc(sim_params->checkpoint_filename,DEFAULT_SHORT_STRING_LENGTH);
-			strcpy(sim_params->checkpoint_filename,checkpoint_filename);
-			sim_params->checkpoint = checkpoint;
-			break;
-		case 'f':
-			//if (freopen(argv[i], "r", stdin) == NULL)
-			//try to open file
-			if ((sim_params->infile = fopen(argv[i],"r")) == NULL)
-				//failed: it must be a sequence
-				retval = argv[i];
-			else
-				if (sim_params->infile_name) free(sim_params->infile_name);
-				copy_string(&(sim_params->infile_name),argv[i]);
-			break;
-		case 'm':
-		    sscanf(argv[i], "%u", &iter_max);
-			sim_params->iter_max = iter_max;
-			break;
-		case 'M':
-		    sscanf(argv[i],"%u",&(sim_params->number_initial_MC));
-		    break;
-		case 'n':
-		    NS = 1;
-			sim_params->NS = NS;
-		    i--;
-		    break;
-		case 'o':
-			//freopen(argv[i], "w", stdout);
-			if ((sim_params->outfile = fopen(argv[i],"w")) == NULL)
-				stop("Could not open output file.\n");
-			else
-				if (sim_params->outfile_name) free(sim_params->outfile_name);
-				copy_string(&(sim_params->outfile_name),argv[i]);
-			break;
-		case 'p':
-			if (sim_params->prm) free(sim_params->prm);
-			copy_string(&sim_params->prm,argv[i]);
-			break;
-		case 'd':
-			if (strcmp(argv[i],"hard_cutoff")==0) {
-				sim_params->protein_model.vdw_potential=HARD_CUTOFF_VDW_POTENTIAL;
-				set_hard_cutoff_default_params(&(sim_params->protein_model));
-			} else if (strcmp(argv[i],"lj")==0) {
-				sim_params->protein_model.vdw_potential=LJ_VDW_POTENTIAL;
-				set_lj_default_params(&(sim_params->protein_model));
-			} else if (strcmp(argv[i],"lj_hard_cutoff")==0) {
-				sim_params->protein_model.vdw_potential=LJ_VDW_POTENTIAL;
-				set_lj_default_params(&(sim_params->protein_model));
-				sim_params->protein_model.vdw_lj_neighbour_hard=1;
-				sim_params->protein_model.vdw_lj_hbonded_hard=1;
-			} else {
-				sprintf(error_string,"Unknown value for vdW potential model (%s).  It must be one of hard_cutoff and lj.",argv[i]);
-				stop(error_string);
-			}
-			break;
-		case 'r':
-			sscanf(argv[i], "%ux%u", &pace, &stretch);
-			sim_params->pace = pace;
-			sim_params->stretch = stretch;
-			break;
-		case 'R':
-			sscanf(argv[i], "%d",&checkpoint_counter);
-			if(checkpoint_counter != -1){
-			  restart_from_checkpoint = 1;
-			  sim_params->checkpoint_counter = checkpoint_counter;
-			  sim_params->restart_from_checkpoint = restart_from_checkpoint;
-			}
-			break;
-		case 's':
-			sscanf(argv[i], "%u", &seed);
-			sim_params->seed = seed;
-			break;
-		case 't':
-			sscanf(argv[i], "%x", &tmask);
-			sim_params->tmask = tmask;
-			break;
-		default:
-			fprintf(stderr, VER USE PARAM_USE, argv[0]);
-			helps();
-			exit(EXIT_FAILURE);
-		}
+	      break;
+	  case 'A': //amplitude
+	    sscanf(argv[i], "%lf,%d", &amplitude,&keep_amplitude_fixed);
+	    if(amplitude > 0.0 || amplitude <= -M_PI){
+	      fprintf(stderr,"Amplitude must be between -PI and 0.0, setting it to -0.25\n");
+	      amplitude = -0.25;
+	    }
+	    sim_params->amplitude = amplitude;
+	    sim_params->keep_amplitude_fixed = keep_amplitude_fixed;
+	    break;
+	  case 'b':
+	    sscanf(argv[i], "%lf-%lf:%u,%u", &beta1, &beta2, &intrvl, &nswap_per_try);
+	    sim_params->beta1 = beta1;
+	    sim_params->beta2 = beta2;
+	    sim_params->intrvl = intrvl;
+	    sim_params->nswap_per_try = nswap_per_try;
+	    break;
+	  case 'c':
+	    sscanf(argv[i],"%lf",&thermobeta);
+	    thermobeta = 298.0/(thermobeta+273.0);
+	    lowtemp = 1;
+	    sim_params->thermobeta = thermobeta;
+	    sim_params->lowtemp = lowtemp;
+	    break;
+	  case 'C':
+	    sscanf(argv[i], "%d,%256s",&num_NS_per_checkpoint,checkpoint_filename);
+	    checkpoint = 1;
+	    sim_params->num_NS_per_checkpoint = num_NS_per_checkpoint;
+	    sim_params->checkpoint_filename = realloc(sim_params->checkpoint_filename,DEFAULT_SHORT_STRING_LENGTH);
+	    strcpy(sim_params->checkpoint_filename,checkpoint_filename);
+	    sim_params->checkpoint = checkpoint;
+	    break;
+	  case 'f':
+	    //if (freopen(argv[i], "r", stdin) == NULL)
+	    //try to open file
+	    if ((sim_params->infile = fopen(argv[i],"r")) == NULL)
+	      //failed: it must be a sequence
+	      retval = argv[i];
+	    else
+	      if (sim_params->infile_name) free(sim_params->infile_name);
+	    copy_string(&(sim_params->infile_name),argv[i]);
+	    break;
+	  case 'm':
+	    sscanf(argv[i], "%u", &iter_max);
+	    sim_params->iter_max = iter_max;
+	    break;
+	  case 'M':
+	    sscanf(argv[i],"%u",&(sim_params->number_initial_MC));
+	    break;
+	  case 'n':
+	    NS = 1;
+	    sim_params->NS = NS;
+	    i--;
+	    break;
+	  case 'o':
+	    //freopen(argv[i], "w", stdout);
+	    if ((sim_params->outfile = fopen(argv[i],"w")) == NULL)
+	      stop("Could not open output file.\n");
+	    else
+	      if (sim_params->outfile_name) free(sim_params->outfile_name);
+	    copy_string(&(sim_params->outfile_name),argv[i]);
+	    break;
+	  case 'p':
+	    if (sim_params->prm) free(sim_params->prm);
+	    copy_string(&sim_params->prm,argv[i]);
+	    break;
+	  case 'd':
+	    if (strcmp(argv[i],"hard_cutoff")==0) {
+	      sim_params->protein_model.vdw_potential=HARD_CUTOFF_VDW_POTENTIAL;
+	      set_hard_cutoff_default_params(&(sim_params->protein_model));
+	    } else if (strcmp(argv[i],"lj")==0) {
+	      sim_params->protein_model.vdw_potential=LJ_VDW_POTENTIAL;
+	      set_lj_default_params(&(sim_params->protein_model));
+	    } else if (strcmp(argv[i],"lj_hard_cutoff")==0) {
+	      sim_params->protein_model.vdw_potential=LJ_VDW_POTENTIAL;
+	      set_lj_default_params(&(sim_params->protein_model));
+	      sim_params->protein_model.vdw_lj_neighbour_hard=1;
+	      sim_params->protein_model.vdw_lj_hbonded_hard=1;
+	    } else {
+	      sprintf(error_string,"Unknown value for vdW potential model (%s).  It must be one of hard_cutoff and lj.",argv[i]);
+	      stop(error_string);
+	    }
+	    break;
+	  case 'D':
+	    if (sim_params->data_folder) free(sim_params->data_folder);
+	    copy_string(&(sim_params->data_folder), argv[i]);
+	    break;
+	  case 'r':
+	    sscanf(argv[i], "%ux%u", &pace, &stretch);
+	    sim_params->pace = pace;
+	    sim_params->stretch = stretch;
+	    break;
+	  case 'L':
+	    if (sim_params->rotamer_lib) free(sim_params->rotamer_lib);
+	    copy_string(&(sim_params->rotamer_lib), argv[i]);
+	    break;
+	  case 'R':
+	    sscanf(argv[i], "%d",&checkpoint_counter);
+	    if(checkpoint_counter != -1){
+	      restart_from_checkpoint = 1;
+	      sim_params->checkpoint_counter = checkpoint_counter;
+	      sim_params->restart_from_checkpoint = restart_from_checkpoint;
+	    }
+	    break;
+	  case 's':
+	    sscanf(argv[i], "%u", &seed);
+	    sim_params->seed = seed;
+	    break;
+	  case 't':
+	    sscanf(argv[i], "%x", &tmask);
+	    sim_params->tmask = tmask;
+	    break;
+	  default:
+	    fprintf(stderr, VER USE PARAM_USE, argv[0]);
+	    helps();
+	    exit(EXIT_FAILURE);
+	  }
 	}
 
 	if (sim_params->seq) free(sim_params->seq);
 	copy_string(&(sim_params->seq),retval);
+
+	// check that the data folder contains the required files
+	char msg[254], buffer[254];
+	FILE *f;
+
+	DIR* dir = opendir(sim_params->data_folder);
+	if (dir) {	  /* Directory exists. */
+	  closedir(dir);
+	} else if (ENOENT == errno) {
+	  sprintf(msg, "data folder %s does not exist", sim_params->data_folder);
+	  stop(msg);
+	} else {
+	  sprintf(msg, "couldn't open data folder %s", sim_params->data_folder);
+	  stop(msg);
+	  /* opendir() failed for some other reason. */
+	}
+	strcpy(buffer, sim_params->data_folder);
+	strcat(buffer, "ramaprob.data");
+	f = fopen(buffer, "r");
+	if (f == NULL) {
+	  sprintf(msg, "ramaprob.data not found in %s", sim_params->data_folder);
+	  stop(msg);
+	} else fclose(f);
+	
+	strcpy(buffer, sim_params->data_folder);
+	strcat(buffer, sim_params->rotamer_lib);
+	f = fopen(buffer, "r");
+	if (f == NULL) {
+	  sprintf(msg, "rotamer library %s ramaprob.data not found in %s", sim_params->rotamer_lib, sim_params->data_folder);
+	  stop(msg);
+	} else fclose(f);
+
+	strcpy(buffer, sim_params->data_folder);
+	strcat(buffer, "constrains");
+	f = fopen(buffer, "r");
+	if (f == NULL) {
+	  sprintf(msg, "constrains file not found in %s", sim_params->data_folder);
+	  stop(msg);
+	} else fclose(f);
 
 	return sim_params->seq;
 }
@@ -919,11 +971,7 @@ void AD_init(Chain *chain, simulation_params *sim_params) {
 		// so that we can load the proper maps. This replace the code above
 		// that was working for a predefined set or amino acids
 		// 31 AutoDock atom types
-		char atypes[32][3] = {
-		      "C", "N", "OA", "HD", "SA", "A", "NA", "H", "HS", "NS",
-		      "NX","OS","OX", "F",  "Mg", "MG", "P", "S", "SX", "Cl",
-		      "CL","Ca","Mn","MN","Fe","FE","Zn","ZN","Br","BR","I"};
-		int hasType[32];
+
 		// force hasType to 1 for C N OA and HD for backbone atoms
 		for (int i = 0; i< 4; i++) hasType[i] = 1;
 		// hasType for all other atom types is initially 0
@@ -970,7 +1018,7 @@ int main(int argc, char *argv[])
 
 	//char *seq;
 	simulation_params sim_params;
-	
+
 	signal(SIGTERM, graceful_exit);
 
 #ifdef PARALLEL
@@ -1012,7 +1060,7 @@ int main(int argc, char *argv[])
 	//model_param_initialise(&(sim_params.protein_model));
 	model_param_read(sim_params.prm,&(sim_params.protein_model),&(sim_params.flex_params));
 
-	ramaprob_initialise();
+	ramaprob_initialise(sim_params.data_folder);
 	
 	initialize_sidechain_properties(&(sim_params.protein_model));
 	vdw_cutoff_distances_calculate(&sim_params, stderr, 0);
@@ -1032,10 +1080,11 @@ int main(int argc, char *argv[])
             Biasmap *biasmap = (Biasmap *)malloc(sizeof(Biasmap));
       	    biasmap->distb = NULL;
 
-	    intialize_AASCRotTable();
-	    
-	   /* read in / generate the peptide */
-	   if (sim_params.seq != NULL) {
+	    //intialize_AASCRotTable();
+	    initialize_AASCRotTable_from_file(&sim_params);
+
+	    /* read in / generate the peptide */
+	    if (sim_params.seq != NULL) {
 
 		//if (sim_params.protein_model.external_constrained_aalist_file) {
 		//	stop("constraints unimplemented!");
@@ -1162,8 +1211,12 @@ int main(int argc, char *argv[])
 		free(Xpts);
 		free(Ypts);
 		free(Zpts);
-		for (int atype = 0; atype < sizeof(gridmapvalues) / sizeof(gridmapvalues)[0]; atype++)
-			free(gridmapvalues[atype]);
+		//for (int atype = 0; atype < sizeof(gridmapvalues) / sizeof(gridmapvalues)[0]; atype++)
+		// 	free(gridmapvalues[atype]);
+		for (int atypeInd=0; atypeInd<MAX_ATOM_TYPES; atypeInd++)
+		  {
+		    if (hasType[atypeInd]==1) free(gridmapvalues[atypeInd]);
+		  }
 	}
 	free(ramaprob);
 	free(alaprob);
