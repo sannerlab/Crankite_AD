@@ -43,8 +43,8 @@ Options:\n\
  -f infile            input PDB file with initial conformation\n\
  or SEQuenCE          peptide sequence in ALPHA and beta states\n\
  -o outfile           redirected output file\n\
- -D dataFolder        folder containing data such rotamers.lib AD4.1_bound.dat ramaprob.data and constrains, default current folder\n\
- -L rotamerLib        file containing side chain rotamers (default is rotamers.lib)\n\
+ -L rotamerLibs       ':' separated list of rotamer files from ADCP/data/rotamers e.g. 'fluo:swiss'\n\
+ -T targetFolder      folder providing the .map and transpoint files\n\
  -a ACCEPTANCE        crankshaft rotation acceptance rate\n\
  -A AMPLITUDE,FIX_AMP crankshaft rotation amplitude and whether the amplitude should be kept fixed (default is no fixing) \n\
  -b BETA1-BETA2:INT   thermodynamic beta schedule\n\
@@ -649,6 +649,41 @@ void simulate(Chain * chain, Chaint *chaint, Biasmap* biasmap, simulation_params
 	freemem_chain(chain2); free(chain2);
 }
 
+char *getDataFolder(char *argv0) {
+  char *path, *p;
+  int sep = argv0[0];
+  path = malloc(sizeof(char)*(strlen(argv0)+8));
+  p = strrchr(argv0, sep);
+  strncpy(path, argv0, p+1-argv0);
+  strcat(path, "data");
+  int len = strlen(path);
+  path[len] = sep;
+  path[len+1]= '\0';
+  return path;
+}
+
+int countToken(char *str, char *sep)
+{
+  char *p;
+  int count=0;
+  p = strtok(str, sep);
+  while (p != NULL) {
+    count +=1 ;
+    p =strtok(NULL, sep);
+  }
+  return count;
+}
+
+char **getTokens(char *str, char *sep, int nbToken)
+{
+  char *p, **tokens = malloc(sizeof(char *)*nbToken);
+  tokens[0] = strtok(str, sep);
+  for (int i=1; i < nbToken; i++) {
+    tokens[i] = strtok(NULL, sep);
+  }
+  return tokens;
+}
+
 char *read_options(int argc, char *argv[], simulation_params *sim_params)
 {
 	unsigned int pace = 0, stretch = 16, tmask = 0x0, seed = 0;
@@ -672,7 +707,18 @@ char *read_options(int argc, char *argv[], simulation_params *sim_params)
 	int keep_amplitude_fixed = sim_params->keep_amplitude_fixed;
 	char error_string[DEFAULT_LONG_STRING_LENGTH]="";
 
+	// MS used for rotamer library filenames
+	char *copy, **tokens;
+	int osSep;
+#ifdef _WIN32
+	osSep = '\\';
+#else
+	osSep = '/';
+#endif
 
+	sim_params->data_folder = getDataFolder(argv[0]);
+	printf("dataFolder: %s\n", sim_params->data_folder);
+	
 	for (i = 1; i < argc; i++) {
 	  if (argv[i][0] != '-') {
 	    //if (freopen(argv[i], "r", stdin) == NULL)
@@ -782,18 +828,24 @@ char *read_options(int argc, char *argv[], simulation_params *sim_params)
 	      stop(error_string);
 	    }
 	    break;
-	  case 'D':
-	    if (sim_params->data_folder) free(sim_params->data_folder);
-	    copy_string(&(sim_params->data_folder), argv[i]);
-	    break;
 	  case 'r':
 	    sscanf(argv[i], "%ux%u", &pace, &stretch);
 	    sim_params->pace = pace;
 	    sim_params->stretch = stretch;
 	    break;
 	  case 'L':
-	    if (sim_params->rotamer_lib) free(sim_params->rotamer_lib);
-	    copy_string(&(sim_params->rotamer_lib), argv[i]);
+	    copy = malloc(sizeof(char)*strlen(argv[i])+1);
+	    strcpy(copy, argv[i]);
+	    sim_params->nbRotLibs = countToken(copy, ":");
+	    sim_params->rotamer_libs = getTokens(argv[i], ":", sim_params->nbRotLibs);
+	    for (int ii=0; ii< sim_params->nbRotLibs; ii++)
+	      printf("sysRotLib %d/%d \"%s\"\n", ii, sim_params->nbRotLibs, sim_params->rotamer_libs[ii]);
+	    break;
+	  case 'l':
+	    copy = malloc(sizeof(char)*strlen(argv[i])+1);
+	    strcpy(copy, argv[i]);
+	    sim_params->nbUserRotLibs = countToken(copy, ":");
+	    sim_params->userRotamer_libs = getTokens(copy, ":", sim_params->nbUserRotLibs);
 	    break;
 	  case 'R':
 	    sscanf(argv[i], "%d",&checkpoint_counter);
@@ -810,6 +862,10 @@ char *read_options(int argc, char *argv[], simulation_params *sim_params)
 	  case 't':
 	    sscanf(argv[i], "%x", &tmask);
 	    sim_params->tmask = tmask;
+	    break;
+	  case 'T':
+	    if (sim_params->prm) free(sim_params->target_folder);
+	    copy_string(&sim_params->target_folder, argv[i]);
 	    break;
 	  default:
 	    fprintf(stderr, VER USE PARAM_USE, argv[0]);
@@ -843,14 +899,35 @@ char *read_options(int argc, char *argv[], simulation_params *sim_params)
 	  sprintf(msg, "ramaprob.data not found in %s", sim_params->data_folder);
 	  stop(msg);
 	} else fclose(f);
-	
-	strcpy(buffer, sim_params->data_folder);
-	strcat(buffer, sim_params->rotamer_lib);
-	f = fopen(buffer, "r");
-	if (f == NULL) {
-	  sprintf(msg, "rotamer library %s ramaprob.data not found in %s", sim_params->rotamer_lib, sim_params->data_folder);
-	  stop(msg);
-	} else fclose(f);
+
+	// count rotamer table entries
+	nbCanAA = 20; // from stdaa.lib
+
+	sim_params->rlfullnames = malloc(sizeof(char *)*(sim_params->nbRotLibs+sim_params->nbUserRotLibs));
+	// build full names with paths for system rotamer libraries
+	int rli;
+	for (rli=0; rli < sim_params->nbRotLibs; rli++) {
+	  sim_params->rlfullnames[rli] = malloc(sizeof(char)*(strlen(sim_params->data_folder)+12+strlen(sim_params->rotamer_libs[rli])));
+	  sprintf(sim_params->rlfullnames[rli], "%srotamers%c%s.lib", sim_params->data_folder, osSep, sim_params->rotamer_libs[rli]);
+	  f = fopen(sim_params->rlfullnames[rli], "r");
+	  if (f == NULL) {
+	    sprintf(msg, "rotamer library %s not found in %s\n", sim_params->rlfullnames[rli], sim_params->data_folder);
+	    stop(msg);
+	  } else {
+	    fclose(f);
+	    int nbrot = countRotamers(sim_params->rlfullnames[rli]);
+	    printf("found %d rotamers in %s\n", nbrot, sim_params->rlfullnames[rli]);
+	    nbCanAA += nbrot;
+	  }
+	}
+	for (int jj=0; jj < sim_params->nbUserRotLibs; jj++) {
+	  sim_params->rlfullnames[rli] = malloc(sizeof(char)*(strlen(sim_params->userRotamer_libs[jj])+1));
+	  strcpy(sim_params->rlfullnames[rli], sim_params->userRotamer_libs[jj]);
+	  int nbrot = countRotamers(sim_params->rlfullnames[rli]);
+	  printf("found %d rotamers in %s\n", nbrot, sim_params->rlfullnames[rli]);
+	  nbCanAA += nbrot;
+	  rli++;
+	}
 
 	strcpy(buffer, sim_params->data_folder);
 	strcat(buffer, "constrains");
@@ -1021,13 +1098,19 @@ int main(int argc, char *argv[])
 
 	signal(SIGTERM, graceful_exit);
 
+	int osSep;
+#ifdef _WIN32
+	osSep = '\\';
+#else
+	osSep = '/';
+#endif
+
 #ifdef PARALLEL
 	/* initialise MPI */
 	MPI_Init(&argc, &argv);
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 #endif
-
 	
 	/* SET SIMULATION PARAMS */
 	param_initialise(&sim_params); //set default
@@ -1037,8 +1120,6 @@ int main(int argc, char *argv[])
 	//param_print(sim_params,sim_params.outfile); //default + read-in
 
 	set_random_seed(&sim_params);
-
-
 
 	/* set different default simulation params for NS and MC */
 	if(sim_params.NS){
@@ -1061,6 +1142,32 @@ int main(int argc, char *argv[])
 	model_param_read(sim_params.prm,&(sim_params.protein_model),&(sim_params.flex_params));
 
 	ramaprob_initialise(sim_params.data_folder);
+
+	//intialize_AASCRotTable();
+	char buffer[254];
+
+	// allocate table of rotamers structures
+	_AASCRotTable = malloc(nbCanAA*sizeof(struct _AASCRot));
+	if (_AASCRotTable == NULL) {
+	  sprintf(buffer, "failed to allocate rotamer table for %d rotamers\n", nbCanAA);
+	  stop(buffer);
+	} else {
+	  printf("allocated space for rotamers for %d amino acids\n", nbCanAA);
+	}
+	// load rotamers
+	// load stdaa always
+	sprintf(buffer, "%s%crotamers%cstdaa.lib", sim_params.data_folder, osSep, osSep);
+	int lastInd =0;
+	lastInd = initialize_AASCRotTable_from_file(buffer, lastInd);
+	    
+	// load additional rotamer libraries
+	for (int rli=0; rli < sim_params.nbRotLibs+sim_params.nbUserRotLibs; rli++)
+	  lastInd = initialize_AASCRotTable_from_file(sim_params.rlfullnames[rli], lastInd);
+
+	if (lastInd-1 > nbCanAA) {
+	  sprintf(buffer, "allocate memory for %d entries in rotamer table but read %d\n", nbCanAA, lastInd-1);
+	  stop(buffer);
+	}
 	
 	initialize_sidechain_properties(&(sim_params.protein_model));
 	vdw_cutoff_distances_calculate(&sim_params, stderr, 0);
@@ -1079,10 +1186,7 @@ int main(int argc, char *argv[])
 	    /* allocate memory for the biasmap */
             Biasmap *biasmap = (Biasmap *)malloc(sizeof(Biasmap));
       	    biasmap->distb = NULL;
-
-	    //intialize_AASCRotTable();
-	    initialize_AASCRotTable_from_file(&sim_params);
-
+	    
 	    /* read in / generate the peptide */
 	    if (sim_params.seq != NULL) {
 
@@ -1177,7 +1281,7 @@ int main(int argc, char *argv[])
 			tests(chain, biasmap, sim_params.tmask, &sim_params, 0x10, NULL);
 #endif
 		   }
-	   }
+	    }
 
 	/* MC */
 	simulate(chain,chaint,biasmap,&sim_params);
@@ -1214,15 +1318,16 @@ int main(int argc, char *argv[])
 		//for (int atype = 0; atype < sizeof(gridmapvalues) / sizeof(gridmapvalues)[0]; atype++)
 		// 	free(gridmapvalues[atype]);
 		for (int atypeInd=0; atypeInd<MAX_ATOM_TYPES; atypeInd++)
-		  {
 		    if (hasType[atypeInd]==1) free(gridmapvalues[atypeInd]);
-		  }
+		for (int rli=0; rli < sim_params.nbRotLibs+sim_params.nbUserRotLibs; rli++)
+		  free(sim_params.rlfullnames[rli]);
+		free(sim_params.rlfullnames);
 	}
 	free(ramaprob);
 	free(alaprob);
 	free(glyprob);
 
 	//print out the timing
-	fprintf(stderr,"The program has successfully finished in %d seconds. :)  Bye-bye!\n", time(NULL)- startTime);
+	fprintf(stderr,"The program has successfully finished in %ld seconds. :)  Bye-bye!\n", time(NULL)- startTime);
 	return EXIT_SUCCESS;
 }

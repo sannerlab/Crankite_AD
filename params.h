@@ -280,7 +280,12 @@ typedef struct {
   char *infile_name;    /* input filename */
   char *outfile_name;   /* output filename */
   char *data_folder;  /* folder containing data such as ramaprob.data rotamers.lib etc */
-  char *rotamer_lib;  /* file name of therotamer library to use for constructing full atyomic side chains */
+  char **rotamer_libs;  /* file names of rotamer libraries from data_folder to be loaded, ':' separated */
+  char **userRotamer_libs;  /* file names and paths of user rotamer libraries to be loaded */
+  int nbRotLibs;
+  int nbUserRotLibs;
+  char **rlfullnames; /* rotamer libraries file names with path */
+  char *target_folder; /* fpath to folder providing .map and transpoints files */
   FILE *infile;
   FILE *outfile;
   unsigned int pace;

@@ -30,7 +30,12 @@ void param_initialise(simulation_params *this) {
 #else
   copy_string(&(this->data_folder), "./");
 #endif
-  copy_string(&(this->rotamer_lib), "rotamers.lib");
+  this->rotamer_libs = NULL;
+  this->nbRotLibs=0;
+  this->nbUserRotLibs=0;
+  this->userRotamer_libs = NULL;
+  this->rlfullnames = NULL;
+  this->target_folder = NULL; /* fpath to folder providing .map and transpoints files */
   this->infile_name = NULL;
   this->outfile_name = NULL;
   this->pace = 0;
