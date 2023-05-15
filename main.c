@@ -941,11 +941,11 @@ char *read_options(int argc, char *argv[], simulation_params *sim_params)
 	  rli++;
 	}
 
-	strcpy(buffer, sim_params->data_folder);
+	strcpy(buffer, sim_params->target_folder);
 	strcat(buffer, "constrains");
 	f = fopen(buffer, "r");
 	if (f == NULL) {
-	  sprintf(msg, "constrains file not found in %s", sim_params->data_folder);
+	  sprintf(msg, "constrains file not found in %s", sim_params->target_folder);
 	  stop(msg);
 	} else fclose(f);
 
