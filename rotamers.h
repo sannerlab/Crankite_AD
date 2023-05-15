@@ -28,6 +28,7 @@ struct _AASCRot {
 
 extern int getSideChainTemplateIndexFromName(char *str);
 extern int getSideChainTemplateIndexFromIDchar(char id);
+extern int countRotamers(char *filename);
 extern int initialize_AASCRotTable_from_file(char *filename, int lastIndex);
 extern int nbCanAA;
 

@@ -39,7 +39,7 @@ int getSideChainTemplateIndexFromName(char *str) {
 // 1 letter code for std AA
 char IDchars[18] = "RNDCQEHILKMFPSTWYV";
 
-const char * aanames[] = {
+char * aanames[] = {
   "ARG","ASN","ASP","CYS","GLN","GLU","HIS","ILE","LEU","LYS","MET","PHE","PRO","SER","THR","TRP","TYR","VAL",
 };
 
@@ -86,11 +86,9 @@ int countRotamers(char *filename) {
 // structure
 int getRotamerForAA(FILE *in_file, struct _AASCRot *aarot, char *aaname)
 {
-  char line[256], coarsePot[20], *aname;
+  char line[256], coarsePot[20];
   int firstNonSpace=0;
-  size_t len = 0;
-  size_t read;
-  int nbRot=-1, nbAt=-1;
+  int read;
   
   while ((read = fgets(line, sizeof(line), in_file)) != -1) {
     //printf("Retrieved line of length %zu:\n", read);
@@ -110,7 +108,6 @@ int getRotamerForAA(FILE *in_file, struct _AASCRot *aarot, char *aaname)
   // rotamers
   aarot->name = (char *)malloc((strlen(aaname)+1)*sizeof(char));
   aarot->coarse_type = (char *)malloc((strlen(coarsePot)+1)*sizeof(char));
-  char *atomTypesStr  = (char *) malloc(3*aarot->nbAtoms*sizeof(char));
   aarot->atypes = (int *)malloc(aarot->nbAtoms*sizeof(int));
   aarot->charges = (double *)malloc(aarot->nbAtoms*sizeof(double));
   aarot->atnames = (char *)malloc(1+aarot->nbAtoms*5*sizeof(char));
@@ -191,7 +188,6 @@ int getRotamerForAA(FILE *in_file, struct _AASCRot *aarot, char *aaname)
 int initialize_AASCRotTable_from_file(char *filename, int lastIndex)
 {
   /* create _AASCRotTable for 20 standard amino acids */
-  struct _AASCRot AASCRot;
   int i=0, retval;
   char aaname[] = "UNK";
 

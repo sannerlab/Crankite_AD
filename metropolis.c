@@ -23,6 +23,7 @@
 #include"vdw.h"
 #include"energy.h"
 #include"metropolis.h"
+#include"probe.h"
 
 
 #define Erg(I,J)     erg[(I) * chain->NAA + (J)]
@@ -360,6 +361,7 @@ int transmutate(Chain * chain, Chaint *chaint, Biasmap *biasmap, double ampl, do
 	fprintf(stderr, "transmutate!!! %g %g %g\n", Xpts[transPtsID], Ypts[transPtsID], Zpts[transPtsID]);
 	//copybetween(chain, chaint);
 	//free(ADEnergy_Chaint);
+	return 0;
 }
 
 
@@ -540,7 +542,7 @@ int transopt(Chain * chain, Chaint *chaint, Biasmap *biasmap, double ampl, doubl
 	/*translational optimization*/
 	//
 	//double transvec[3][chain->NAA - 1];
-	double transvec[3];
+	//double transvec[3];
 
 	//copy chain to chiant
 	int i, j;
@@ -580,8 +582,11 @@ int transopt(Chain * chain, Chaint *chaint, Biasmap *biasmap, double ampl, doubl
 	int maxStep = 10;
 	int maxNoImprovStep = 3;
 	if (mod == 1){
-		int maxStep = 30;
-		int maxNoImprovStep = 5;
+	  //MS while removing warnings I changed this 
+	  // int maxStep = 30;
+	  // int maxNoImprovStep = 5;
+	  maxStep = 30;
+	  maxNoImprovStep = 5;
 	}
 
 	for (step = 0; step < maxStep; step++) {
@@ -801,10 +806,13 @@ static int crankshaft(Chain * chain, Chaint *chaint, Biasmap *biasmap, double am
 					if (j == 1) {
 						if (chain->aa[j].chainid == chain->aa[j+i].chainid) fixed_moves ++;
 					} else {
-						if (chain->aa[j].chainid != chain->aa[j-1].chainid && chain->aa[j].chainid == chain->aa[j+i].chainid) fixed_moves ++;
+					  if ((chain->aa[j].chainid != chain->aa[j-1].chainid) && (chain->aa[j].chainid == chain->aa[j+i].chainid)) fixed_moves ++;
 					}
 					//also count the extra move at the end of the mid-chain
-					if (chain->aa[j].chainid != chain->aa[j + 1].chainid && !chain->aa[j + 1].etc & FIXED) fixed_moves++;
+					// MS original line generated warning
+					//if (chain->aa[j].chainid != chain->aa[j + 1].chainid && !chain->aa[j + 1].etc & FIXED) fixed_moves++;
+					// replaced by the following based on C operator precendence
+					if ((chain->aa[j].chainid != chain->aa[j + 1].chainid) && !chain->aa[j + 1].etc & FIXED) fixed_moves++;
 					continue;
 				}
 
@@ -892,7 +900,7 @@ static int crankshaft(Chain * chain, Chaint *chaint, Biasmap *biasmap, double am
 			stop("crankshaft: tried to move fixed amino acid.\n");
 		}
 	}
-	int swappp = 0;
+	// int swappp = 0;
 	//for cyclic peptide Gary Hack
 	while (sim_params->protein_model.external_potential_type2 == 4 && (start == 0 || end == chain->NAA) && ((toss%50) > chain->Erg(1, 0))) {
 		toss = rand();
@@ -907,7 +915,7 @@ static int crankshaft(Chain * chain, Chaint *chaint, Biasmap *biasmap, double am
 		else {
 			end = start + len + 1;
 		}
-		swappp = 1;
+		// swappp = 1;
 		//fprintf(stderr, "s %d e %d \n", start,end);
 	}
 	//if (swappp == 1) fprintf(stderr, "s %d e %d \n", start, end);
@@ -1087,11 +1095,11 @@ static int crankshaft(Chain * chain, Chaint *chaint, Biasmap *biasmap, double am
 /*reverse the chain first amino to the last position, reverse all CA atom and rebuild the peptide*/
 int flipChain(Chain * chain, Chaint *chaint, Biasmap *biasmap, double ampl, double logLstar, double * currE, simulation_params *sim_params)
 {	
-	int start, end, len, toss;
-	double alpha;
-	vector a;
-	matrix t;
-	const double discrete = 2.0 / RAND_MAX;
+  int start, end; //toss, len
+	// double alpha;
+	// vector a;
+	// matrix t;
+	//const double discrete = 2.0 / RAND_MAX;
     
 	//if(sim_params->NS){ 
 	for (int i = 1; i < chain->NAA; i++){
@@ -1105,10 +1113,10 @@ int flipChain(Chain * chain, Chaint *chaint, Biasmap *biasmap, double ampl, doub
     
 
 //TODO multi-chain protein
-	int pivot_around_end = 0;
-	int pivot_around_start = 0;
+	//int pivot_around_end = 0;
+	//int pivot_around_start = 0;
 
-	toss = rand();
+	//toss = rand();
 
 	start = 1;
 	end = chain->NAA - 1;
@@ -1355,11 +1363,11 @@ static int crankshaftcyclic(Chain * chain, Chaint *chaint, Biasmap *biasmap, dou
 /*shift the peptide, shift all CA atoms and rebuild the peptide*/
 int rotate_cyclic(Chain * chain, Chaint *chaint, Biasmap *biasmap, double ampl, double logLstar, double * currE, simulation_params *sim_params)
 {	
-	int start, end, len, toss;
-	double alpha;
-	vector a;
-	matrix t;
-	const double discrete = 2.0 / RAND_MAX;    
+  int start, end, toss; // len
+	// double alpha;
+	// vector a;
+	// matrix t;
+	// const double discrete = 2.0 / RAND_MAX;    
 	//if(sim_params->NS){ 
 	for (int i = 1; i < chain->NAA; i++){
 		chaint->aat[i].etc = chain->aa[i].etc;
@@ -1372,8 +1380,8 @@ int rotate_cyclic(Chain * chain, Chaint *chaint, Biasmap *biasmap, double ampl, 
     
 
 //TODO multi-chain protein
-	int pivot_around_end = 0;
-	int pivot_around_start = 0;
+	// int pivot_around_end = 0;
+	// int pivot_around_start = 0;
 
 	toss = rand();
 
@@ -1500,6 +1508,7 @@ int rotate_cyclic(Chain * chain, Chaint *chaint, Biasmap *biasmap, double ampl, 
 	return 1;
 }
 
+#ifdef NOTUSED
 /*crankshaft move with longer moving segments*/
 static int crankshaft_adk(Chain * chain, Chaint *chaint, Biasmap *biasmap, double ampl, double logLstar, double * currE, simulation_params *sim_params)
 {	
@@ -1763,7 +1772,7 @@ static int crankshaft_adk(Chain * chain, Chaint *chaint, Biasmap *biasmap, doubl
 
 	return 1;
 }
-
+#endif
 
 
 /* MC move wrapper.  Call crankshaft to make an MC move, and calculate the acceptance rate.
@@ -1779,7 +1788,7 @@ int move(Chain *chain,Chaint *chaint, Biasmap *biasmap, double logLstar, double 
 
 */
 	//static int score = 0
-	static int transaccept = 0, reject = 0;    
+  static int transaccept = 0;//, reject = 0;    
 	int moved = 0;
 	if (changeamp == -1) { sim_params->accept_counter = 0; sim_params->reject_counter = 0; transaccept = 0; }
 	if (sim_params->protein_model.external_potential_type2 == 4 && chain->Erg(1,0)<0.1) {

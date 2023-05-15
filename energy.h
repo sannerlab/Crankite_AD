@@ -9,6 +9,8 @@
 #ifndef ENERGYDEF
 #define ENERGYDEF
 
+#include "params.h"
+
 /* CA-CA distance cutoff for vdW interactions */
 //extern const double vdw_cutoff2_without_use_gamma;
 //extern const double vdw_cutoff2_gg;
@@ -34,8 +36,8 @@ extern int NX, NY, NZ;
 extern double targetBest, currTargetEnergy;
 //double totalEBest;
 double lower_gridenergy(double);
-void gridbox_initialise();
-void transpts_initialise();
+void gridbox_initialise(simulation_params *sim_params);
+void transpts_initialise(simulation_params *sim_params);
 void ramaprob_initialise(char *folder);
 
 # define MAX_ATOM_TYPES 32

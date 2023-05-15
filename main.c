@@ -194,7 +194,7 @@ void simulate(Chain * chain, Chaint *chaint, Biasmap* biasmap, simulation_params
 		// targetBest and currTargetEnergy are two global variables
 		targetBest = 99999.;
 		currTargetEnergy = 99999.;
-		double targetBestTemp = targetBest;
+		//double targetBestTemp = targetBest;
 		//double targetBestPrev = targetBest;
 		double lastTargetEnergy = 9999.;		
 		int lastIndex = 0; //Index for last last good energy 
@@ -211,7 +211,7 @@ void simulate(Chain * chain, Chaint *chaint, Biasmap* biasmap, simulation_params
 		int ind = 0;
 		int currIndex = 0;
 		int stuckcount = 0;
-		FILE *swapFile = NULL;
+		//FILE *swapFile = NULL;
 		char swapname[12];
 		sprintf(swapname, "swap%d.pdb", swapLength);
 		double swapEnergy[swapLength + 1];
@@ -550,7 +550,7 @@ void simulate(Chain * chain, Chaint *chaint, Biasmap* biasmap, simulation_params
 		double targetBestTemp = targetBest;
 		targetBest = 9999.;
 		double currTargetEnergy = 99999.;
-		double lastTargetEnergy = 99999.;
+		//double lastTargetEnergy = 99999.;
 		for (i = 1; i < sim_params->stretch; i++) {
 			targetBestTemp = targetBest;
 			if (!sim_params->keep_amplitude_fixed) { // potentially alter amplitude
@@ -651,7 +651,12 @@ void simulate(Chain * chain, Chaint *chaint, Biasmap* biasmap, simulation_params
 
 char *getDataFolder(char *argv0) {
   char *path, *p;
-  int sep = argv0[0];
+#ifdef _WIN32
+  int sep='\\';
+#else
+  int sep='/';
+#endif  
+  //int sep = argv0[0];
   path = malloc(sizeof(char)*(strlen(argv0)+8));
   p = strrchr(argv0, sep);
   strncpy(path, argv0, p+1-argv0);
@@ -659,6 +664,7 @@ char *getDataFolder(char *argv0) {
   int len = strlen(path);
   path[len] = sep;
   path[len+1]= '\0';
+  printf("FOFO %s %s\n", argv0, path);
   return path;
 }
 
@@ -676,7 +682,7 @@ int countToken(char *str, char *sep)
 
 char **getTokens(char *str, char *sep, int nbToken)
 {
-  char *p, **tokens = malloc(sizeof(char *)*nbToken);
+  char **tokens = malloc(sizeof(char *)*nbToken);
   tokens[0] = strtok(str, sep);
   for (int i=1; i < nbToken; i++) {
     tokens[i] = strtok(NULL, sep);
@@ -708,7 +714,7 @@ char *read_options(int argc, char *argv[], simulation_params *sim_params)
 	char error_string[DEFAULT_LONG_STRING_LENGTH]="";
 
 	// MS used for rotamer library filenames
-	char *copy, **tokens;
+	char *copy;
 	int osSep;
 #ifdef _WIN32
 	osSep = '\\';
@@ -865,7 +871,13 @@ char *read_options(int argc, char *argv[], simulation_params *sim_params)
 	    break;
 	  case 'T':
 	    if (sim_params->prm) free(sim_params->target_folder);
-	    copy_string(&sim_params->target_folder, argv[i]);
+	    char folderName[254];
+	    strcpy(folderName, argv[i]);
+	    if (argv[i][strlen(argv[i])-1]!=osSep)
+	      sprintf(folderName, "%s%c", argv[i], osSep);
+	    else
+	      strcpy(folderName, argv[i]);
+	    copy_string(&sim_params->target_folder, folderName);
 	    break;
 	  default:
 	    fprintf(stderr, VER USE PARAM_USE, argv[0]);
@@ -1070,16 +1082,18 @@ void AD_init(Chain *chain, simulation_params *sim_params) {
 		/* for (int i = 0; i< 32; i++) printf("%d ",hasType[i]); */
 		/* printf("\n"); */
 
-		transpts_initialise();
-		gridbox_initialise();
+		transpts_initialise(sim_params);
+		gridbox_initialise(sim_params);
 
-		gridmap_initialise("rigidReceptor.e.map", -1);
-		gridmap_initialise("rigidReceptor.d.map", -2);
-		/* elements are 0:C, 1:N, 2:O, 3:HD, 4:SA, 5:CA, 6:NA ,7:elec 8:desolv      */
 		char mapname[255];
+		sprintf(mapname, "%srigidReceptor.e.map", sim_params->target_folder);
+		gridmap_initialise(mapname, -1);
+		sprintf(mapname, "%srigidReceptor.d.map", sim_params->target_folder);
+		gridmap_initialise(mapname, -2);
+		/* elements are 0:C, 1:N, 2:O, 3:HD, 4:SA, 5:CA, 6:NA ,7:elec 8:desolv      */
 		for (int i = 0; i< 32; i++) {
 		  if (hasType[i]==1) {
-		    sprintf(mapname, "rigidReceptor.%s.map", atypes[i]);
+		    sprintf(mapname, "%srigidReceptor.%s.map", sim_params->target_folder, atypes[i]);
 		    printf("loading map %s\n", mapname);
 		    gridmap_initialise(mapname, i);
 		  }

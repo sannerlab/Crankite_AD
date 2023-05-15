@@ -11,6 +11,7 @@
 #include<string.h>
 #include<math.h>
 #include<float.h>
+#include<ctype.h>
 
 //#include"canonicalAA.h"
 #include"rotamers.h"
@@ -933,7 +934,6 @@ void build_peptide_from_sequence(Chain * chain, Chaint *chaint, char *str, simul
 	  dAA[next] = 0; // L- by default
 	}
 	int next_chain_id = 1; /* starting from 1 */
-	char sideChainTemplateName[100];
 	next = 0;
 	for (int j = 0; str[j] != '\0'; j++){
 	    if (str[j]=='&') { /* this AA has to be DEXTRO */
@@ -1368,7 +1368,7 @@ int fullAApdbrecord( AA *a, int j, model_params *mod_params, FILE *outfile)
         fprintf(outfile,fmt, ++j, " H  ", a->h[0], a->h[1], a->h[2]);
 
     if (a->sideChainTemplateIndex>=0) {
-        buildSideChain(a, &coords);
+      buildSideChain(a, (float *)&coords);
         for (i = 0; i < nbAtoms; i++) {
 	  strncpy(atname, _AASCRotTable[a->sideChainTemplateIndex].atnames + i*5, 4);
 	  atname[4] = '\0';
@@ -1936,6 +1936,7 @@ static double repair_multichain( Chain *chain1, Chain *chain2) {
 
 }
 
+#ifdef NOTUSED
 /* minimally adjust coordinates to better equalize Ca-Ca distances */
 // TODO: multi-chain proteins
 static double repair( Chain *chain1, Chain *chain2)
@@ -2132,6 +2133,7 @@ static double repair( Chain *chain1, Chain *chain2)
 
 	return rmse;
 }
+#endif
 
 /* parsing ATOM entries from a PDB file for initialization
 returning the number of parsed amino acids */
@@ -2319,7 +2321,7 @@ void mark_fixed_aa_from_file(Chain *chain, simulation_params *sim_params) {
   //FILE *fptr = fopen((sim_params->protein_model).fixed_aalist_file, "r");
   FILE *fptr = fopen(buffer, "r");
   if (!fptr) {
-    char msg[254];
+    char msg[512];
     sprintf(msg, "mark_fixed_aa_from_file: problems while opening constraint file %s", buffer);
     stop(msg);
   }
@@ -2355,7 +2357,7 @@ void mark_constrained_aa_from_file(Chain *chain, simulation_params *sim_params) 
     //FILE *fptr = fopen((sim_params->protein_model).external_constrained_aalist_file, "r");
     FILE *fptr = fopen(buffer, "r");
     if (!fptr) {
-      char msg[254];
+      char msg[512];
       sprintf(msg, "problems while opening file %s", buffer);
       stop(msg);
     }
