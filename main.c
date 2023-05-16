@@ -44,6 +44,7 @@ Options:\n\
  or SEQuenCE          peptide sequence in ALPHA and beta states\n\
  -o outfile           redirected output file\n\
  -L rotamerLibs       ':' separated list of rotamer files from ADCP/data/rotamers e.g. 'fluo:swiss'\n\
+ -l userRotamerLibs   ':' separated list of user-specide rotamer files eg. -l ./myRots.lib'\n\
  -T targetFolder      folder providing the .map and transpoint files\n\
  -a ACCEPTANCE        crankshaft rotation acceptance rate\n\
  -A AMPLITUDE,FIX_AMP crankshaft rotation amplitude and whether the amplitude should be kept fixed (default is no fixing) \n\
