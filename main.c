@@ -665,7 +665,7 @@ char *getDataFolder(char *argv0) {
   int len = strlen(path);
   path[len] = sep;
   path[len+1]= '\0';
-  printf("FOFO %s %s\n", argv0, path);
+  //printf("FOFO %s %s\n", argv0, path);
   return path;
 }
 
