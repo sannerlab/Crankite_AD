@@ -990,7 +990,14 @@ void build_peptide_from_sequence(Chain * chain, Chaint *chaint, char *str, simul
 	  
 	  if (SCTnames[i]!=NULL) {
 	    // we have a template for sidechain rotamers
-	    int index = getSideChainTemplateIndexFromName(SCTnames[i]);
+	    int index;
+	    if (dAA[i]==1) {
+	      char name[255];
+	      sprintf(name, "%s_D", SCTnames[i]);
+	      index = getSideChainTemplateIndexFromName(name);
+	    } else {
+	      index = getSideChainTemplateIndexFromName(SCTnames[i]);
+	    }
 	    if (index==-1) {
 	      fprintf(stderr, "Could not find SideChainTemplateIndex for <%s>\n", SCTnames[i]);
 	      stop("missing side chain template");
@@ -2316,7 +2323,7 @@ void mark_fixed_aa_from_file(Chain *chain, simulation_params *sim_params) {
   fprintf(stderr,"marking fixed amino acids from file %s\n",(sim_params->protein_model).fixed_aalist_file);
 
   char buffer[254];
-  strcpy(buffer, sim_params->data_folder);
+  strcpy(buffer, sim_params->target_folder);
   strcat(buffer, (sim_params->protein_model).fixed_aalist_file);
   //FILE *fptr = fopen((sim_params->protein_model).fixed_aalist_file, "r");
   FILE *fptr = fopen(buffer, "r");
@@ -2351,14 +2358,14 @@ void mark_constrained_aa_from_file(Chain *chain, simulation_params *sim_params) 
     fprintf(stderr,"1marking constrained amino acids from file %s\n",(sim_params->protein_model).external_constrained_aalist_file);
 
     char buffer[254];
-    strcpy(buffer, sim_params->data_folder);
+    strcpy(buffer, sim_params->target_folder);
     strcat(buffer, (sim_params->protein_model).external_constrained_aalist_file);
     
     //FILE *fptr = fopen((sim_params->protein_model).external_constrained_aalist_file, "r");
     FILE *fptr = fopen(buffer, "r");
     if (!fptr) {
       char msg[512];
-      sprintf(msg, "problems while opening file %s", buffer);
+      sprintf(msg, "problem while opening file %s", buffer);
       stop(msg);
     }
     fprintf(stderr, "Constraining amino acids:");

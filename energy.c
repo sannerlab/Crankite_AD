@@ -2075,7 +2075,6 @@ double scoreSideChainNoClashNew(AA *a, double* setCoords, int ind, int numRand)
   int indHIE = getSideChainTemplateIndexFromName("HIE");
   int indHID = getSideChainTemplateIndexFromName("HID");
   if (isHis) { // HIS or HIE or HID
-    printf("FUGU5: trying HIE (%d) and HID (%d), isHis=%d\n", indHIE, indHID, isHis);
     charges = _AASCRotTable[indHIE].charges; // HIE
     atypes = _AASCRotTable[indHIE].atypes;
     coords = _AASCRotTable[indHIE].coords;
