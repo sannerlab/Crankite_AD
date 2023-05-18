@@ -1,4 +1,4 @@
-ALL = adcp_Linux-x86_64
+ALL = CrankiteAD_1.1
 
 OS = $(shell uname -s)
 CFLAGS = -std=c99 -O2 # -D_GNU_SOURCE #-fgnu89-inline
@@ -41,7 +41,7 @@ endif
 all : $(ALL)
 
 #serial peptide program (MC, nested sampling)
-adcp_Linux-x86_64 : nested.c aadict.c energy.c main.c metropolis.c flex.c peptide.c probe.c rotation.c vector.c params.c error.c checkpoint_io.c vdw.c rotamers.c
+CrankiteAD_1.1: nested.c aadict.c energy.c main.c metropolis.c flex.c peptide.c probe.c rotation.c vector.c params.c error.c checkpoint_io.c vdw.c rotamers.c
 	$(CC) $(CFLAGS) $^ $(LDFLAGS) -o $@ -g
 
 clean :
