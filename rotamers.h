@@ -22,6 +22,7 @@ struct _AASCRot {
   char *name;         /* residue name */
   char *coarse_type;  /* name of coarse potential entry */
   double *charges;    /* list of nbAtoms doubles holding atomic charges */
+  double *rotProbas;  /* list of probabilities for rotamers, adds up to 1.0 */
   char *atnames;
   double **coords;   /* [nbRot][natoms x 3] double holding atomic coordinates for rotamers */
 };

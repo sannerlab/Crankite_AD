@@ -107,6 +107,7 @@ int getRotamerForAA(FILE *in_file, struct _AASCRot *aarot, char *aaname)
   // allocate memory for rotamer name, atom names, types, charges and coordinates pointer for
   // rotamers
   aarot->name = (char *)malloc((strlen(aaname)+1)*sizeof(char));
+  aarot->rotProbas = (double *)malloc(aarot->nbAtoms*sizeof(double));
   aarot->coarse_type = (char *)malloc((strlen(coarsePot)+1)*sizeof(char));
   aarot->atypes = (int *)malloc(aarot->nbAtoms*sizeof(int));
   aarot->charges = (double *)malloc(aarot->nbAtoms*sizeof(double));
@@ -116,6 +117,13 @@ int getRotamerForAA(FILE *in_file, struct _AASCRot *aarot, char *aaname)
   // fill out the structure
   strcpy(aarot->name, aaname); // rotamer name
   strcpy(aarot->coarse_type, coarsePot); // rotamer name
+
+  // read the rotamer probabilies
+  for (int i=0; i<aarot->nbRot; i++) {
+    read = fscanf(in_file, "%lf", &aarot->rotProbas[i]);
+    if (read!=1) return 0;
+  }
+  fscanf(in_file, "%c", line); while (line[0]!='\n') fscanf(in_file, "%c", line); // get rid of trailing spaces and NL
 
   // read the atom types
   read = fgets(line, sizeof(line), in_file);
