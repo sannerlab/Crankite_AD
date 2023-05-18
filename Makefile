@@ -1,4 +1,4 @@
-ALL = adcp_Linux-x86_64_1.1beta
+ALL = CrankiteAD_Linux-x86_64_1.1
 
 OS = $(shell uname -s)
 CFLAGS = -std=c99 -O2 # -D_GNU_SOURCE #-fgnu89-inline
@@ -9,7 +9,7 @@ LDFLAGS = -lm
 LDFLAGS_DEBUG = -lm
 
 ifeq ($(OS), Linux)
-	CFLAGS = -std=c99 -Wall -O2 -fcommon#-Wno-unused-result 
+	CFLAGS = -std=c99 -Wall -O2 #-Wno-unused-result 
 	CFLAGS_DEBUG = -std=c99 -Wall -O0 -g -DDEBUG #-Wno-unused-result -g
 	CFLAGS = -std=c99 -Wall -O0 -g -DDEBUG #-Wno-unused-result -g
 	ifneq ($(shell which mpicc),)
@@ -41,7 +41,7 @@ endif
 all : $(ALL)
 
 #serial peptide program (MC, nested sampling)
-adcp_Linux-x86_64_1.1beta : nested.c aadict.c energy.c main.c metropolis.c flex.c peptide.c probe.c rotation.c vector.c params.c error.c checkpoint_io.c vdw.c rotamers.c
+CrankiteAD_Linux-x86_64_1.1: nested.c aadict.c energy.c main.c metropolis.c flex.c peptide.c probe.c rotation.c vector.c params.c error.c checkpoint_io.c vdw.c rotamers.c
 	$(CC) $(CFLAGS) $^ $(LDFLAGS) -o $@ -g
 
 clean :

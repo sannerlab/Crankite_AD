@@ -5,7 +5,7 @@
 
 int main(void)
 {
-  intialize_AASCRotTable_from_file();
+  initialize_AASCRotTable_from_file();
   int ind = getSideChainTemplateIndexFromName("ILE");
   printf("index %d for ILE", ind);
 }

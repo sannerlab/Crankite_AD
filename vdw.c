@@ -968,22 +968,22 @@ double exclude(AA *a, AA *b, double d2, model_params *mod_params)
 		if (d2 > (mod_params->vdw_gamma_gamma_cutoff)[index]) /* cg - cg */
 			return erg;
         
-			if (a->etc & G__) {
-			   if ((rg_a = sidechain_vdw_radius(a->id,1,mod_params->sidechain_properties)) > 0.0)
-			   eps_g_a_sqrt = sidechain_vdw_depth_sqrt(a->id,1,mod_params->sidechain_properties);
-			}
-			if (a->etc & G2_) {
-			   if ((rg2_a = sidechain_vdw_radius(a->id,2,mod_params->sidechain_properties)) > 0.0)
-			   eps_g2_a_sqrt = sidechain_vdw_depth_sqrt(a->id,2,mod_params->sidechain_properties);
-			}
-			if (b->etc & G__) {
-			   if ((rg_b = sidechain_vdw_radius(b->id,1,mod_params->sidechain_properties)) > 0.0)
-			   eps_g_b_sqrt = sidechain_vdw_depth_sqrt(b->id,1,mod_params->sidechain_properties);
-			}
-			if (b->etc & G2_) {
-			   if ((rg2_b = sidechain_vdw_radius(b->id,2,mod_params->sidechain_properties)) > 0.0)
-			   eps_g2_b_sqrt = sidechain_vdw_depth_sqrt(b->id,2,mod_params->sidechain_properties);
-			}
+		if (a->etc & G__) {
+		  if ((rg_a = sidechain_vdw_radius(a->id,1,mod_params->sidechain_properties)) > 0.0)
+		    eps_g_a_sqrt = sidechain_vdw_depth_sqrt(a->id,1,mod_params->sidechain_properties);
+		}
+		if (a->etc & G2_) {
+		  if ((rg2_a = sidechain_vdw_radius(a->id,2,mod_params->sidechain_properties)) > 0.0)
+		    eps_g2_a_sqrt = sidechain_vdw_depth_sqrt(a->id,2,mod_params->sidechain_properties);
+		}
+		if (b->etc & G__) {
+		  if ((rg_b = sidechain_vdw_radius(b->id,1,mod_params->sidechain_properties)) > 0.0)
+		    eps_g_b_sqrt = sidechain_vdw_depth_sqrt(b->id,1,mod_params->sidechain_properties);
+		}
+		if (b->etc & G2_) {
+		  if ((rg2_b = sidechain_vdw_radius(b->id,2,mod_params->sidechain_properties)) > 0.0)
+		    eps_g2_b_sqrt = sidechain_vdw_depth_sqrt(b->id,2,mod_params->sidechain_properties);
+		}
 			
 
 		if (rg_a != 0.0) {

@@ -6,13 +6,17 @@
 ** Copyright (c) 2007 - 2013 Nikolas Burkoff, Csilla Varnai and David Wild
 */
 
+#ifndef ENERGYDEF
+#define ENERGYDEF
+
+#include "params.h"
+
 /* CA-CA distance cutoff for vdW interactions */
 //extern const double vdw_cutoff2_without_use_gamma;
 //extern const double vdw_cutoff2_gg;
 //extern const double vdw_cutoff2_gng;
 /* CA-CA distance cutoff for Hbond interactions */
 extern const double hbond_cutoff;
-
 
 /* energy matrix and biasmap operations */
 void energy_matrix_calculate(Chain *,Biasmap *, model_params *mod_params);
@@ -32,11 +36,14 @@ extern int NX, NY, NZ;
 extern double targetBest, currTargetEnergy;
 //double totalEBest;
 double lower_gridenergy(double);
-void gridbox_initialise();
-void transpts_initialise();
-void ramaprob_initialise();
+void gridbox_initialise(simulation_params *sim_params);
+void transpts_initialise(simulation_params *sim_params);
+void ramaprob_initialise(char *folder);
 
-extern double *gridmapvalues[9];
+# define MAX_ATOM_TYPES 32
+extern const char atypes[MAX_ATOM_TYPES][3];
+extern double *gridmapvalues[MAX_ATOM_TYPES];
+extern int hasType[MAX_ATOM_TYPES];
 extern double *emapvalues;
 extern double *dmapvalues;
 
@@ -92,3 +99,4 @@ double secondary_radius_of_gyration(int start, int end, Chain *chain, Chaint *ch
 void energy_probe_1(Chain *chain,Biasmap *biasmap,simulation_params *sim_params);
 void energy_contributions_in_energy_c(Chain * chain,Biasmap *biasmap, double tote, model_params *mod_params, FILE *outfile);
 void exclude_energy_contributions_in_energy_c(Chain * chain,Biasmap *biasmap, double tote, model_params *mod_params, FILE *outfile);
+#endif

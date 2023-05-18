@@ -86,8 +86,8 @@ void repairheap(ChainHash* chainhash,int N){
 
 void new_amplitude(Chain **cpoints, Biasmap *biasmap, int current_stored, simulation_params *sim_params, void *mpi_comm){
 
-  int rank = 0;
-  int P = 1;
+  //int rank = 0;
+  //int P = 1;
   double amptot = 0;
   double oldamp = sim_params->amplitude;
   Chaint *chaint;
@@ -955,7 +955,9 @@ void nestedsampling(int thinning, int maxiter, simulation_params *sim_params){
   if(thinning == 0) thinning = 1;
 
 #endif
-  Instructions *instructions=NULL;
+#ifdef FAST
+  Instructions *instructions;
+#endif
   int copies = 0;
   //in case restarting from checkpoint
   int only_output_checkpoint = 0; 
@@ -1097,8 +1099,10 @@ void nestedsampling(int thinning, int maxiter, simulation_params *sim_params){
   //setup chaincopies for the chains that will be collected every NS iteration to generate the new sample points, P for parallel, 1(=P) for serial
   //the slave processors will have 1 chaincopy, with the one they do MCMC on
   int size_of_chaincopies = 1;
+#ifdef FAST
   int size_of_instruction_set = 0;
   instructions = NULL;
+#endif
 #ifndef FAST
   if (rank == 0) {
     size_of_chaincopies = P;

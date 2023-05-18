@@ -11,6 +11,8 @@
 #include<time.h>
 #include<signal.h>
 #include<math.h>
+#include <dirent.h>
+#include <errno.h>
 
 #ifdef PARALLEL
 #include<mpi.h>
@@ -41,6 +43,9 @@ Options:\n\
  -f infile            input PDB file with initial conformation\n\
  or SEQuenCE          peptide sequence in ALPHA and beta states\n\
  -o outfile           redirected output file\n\
+ -L rotamerLibs       ':' separated list of rotamer files from ADCP/data/rotamers e.g. 'fluo:swiss'\n\
+ -l userRotamerLibs   ':' separated list of user-specide rotamer files eg. -l ./myRots.lib'\n\
+ -T targetFolder      folder providing the .map and transpoint files\n\
  -a ACCEPTANCE        crankshaft rotation acceptance rate\n\
  -A AMPLITUDE,FIX_AMP crankshaft rotation amplitude and whether the amplitude should be kept fixed (default is no fixing) \n\
  -b BETA1-BETA2:INT   thermodynamic beta schedule\n\
@@ -190,7 +195,7 @@ void simulate(Chain * chain, Chaint *chaint, Biasmap* biasmap, simulation_params
 		// targetBest and currTargetEnergy are two global variables
 		targetBest = 99999.;
 		currTargetEnergy = 99999.;
-		double targetBestTemp = targetBest;
+		//double targetBestTemp = targetBest;
 		//double targetBestPrev = targetBest;
 		double lastTargetEnergy = 9999.;		
 		int lastIndex = 0; //Index for last last good energy 
@@ -207,7 +212,7 @@ void simulate(Chain * chain, Chaint *chaint, Biasmap* biasmap, simulation_params
 		int ind = 0;
 		int currIndex = 0;
 		int stuckcount = 0;
-		FILE *swapFile = NULL;
+		//FILE *swapFile = NULL;
 		char swapname[12];
 		sprintf(swapname, "swap%d.pdb", swapLength);
 		double swapEnergy[swapLength + 1];
@@ -546,7 +551,7 @@ void simulate(Chain * chain, Chaint *chaint, Biasmap* biasmap, simulation_params
 		double targetBestTemp = targetBest;
 		targetBest = 9999.;
 		double currTargetEnergy = 99999.;
-		double lastTargetEnergy = 99999.;
+		//double lastTargetEnergy = 99999.;
 		for (i = 1; i < sim_params->stretch; i++) {
 			targetBestTemp = targetBest;
 			if (!sim_params->keep_amplitude_fixed) { // potentially alter amplitude
@@ -645,6 +650,47 @@ void simulate(Chain * chain, Chaint *chaint, Biasmap* biasmap, simulation_params
 	freemem_chain(chain2); free(chain2);
 }
 
+char *getDataFolder(char *argv0) {
+  char *path, *p;
+#ifdef _WIN32
+  int sep='\\';
+#else
+  int sep='/';
+#endif  
+  //int sep = argv0[0];
+  path = malloc(sizeof(char)*(strlen(argv0)+8));
+  p = strrchr(argv0, sep);
+  strncpy(path, argv0, p+1-argv0);
+  strcat(path, "data");
+  int len = strlen(path);
+  path[len] = sep;
+  path[len+1]= '\0';
+  //printf("FOFO %s %s\n", argv0, path);
+  return path;
+}
+
+int countToken(char *str, char *sep)
+{
+  char *p;
+  int count=0;
+  p = strtok(str, sep);
+  while (p != NULL) {
+    count +=1 ;
+    p =strtok(NULL, sep);
+  }
+  return count;
+}
+
+char **getTokens(char *str, char *sep, int nbToken)
+{
+  char **tokens = malloc(sizeof(char *)*nbToken);
+  tokens[0] = strtok(str, sep);
+  for (int i=1; i < nbToken; i++) {
+    tokens[i] = strtok(NULL, sep);
+  }
+  return tokens;
+}
+
 char *read_options(int argc, char *argv[], simulation_params *sim_params)
 {
 	unsigned int pace = 0, stretch = 16, tmask = 0x0, seed = 0;
@@ -668,146 +714,241 @@ char *read_options(int argc, char *argv[], simulation_params *sim_params)
 	int keep_amplitude_fixed = sim_params->keep_amplitude_fixed;
 	char error_string[DEFAULT_LONG_STRING_LENGTH]="";
 
+	// MS used for rotamer library filenames
+	char *copy;
+	int osSep;
+#ifdef _WIN32
+	osSep = '\\';
+#else
+	osSep = '/';
+#endif
 
+	sim_params->data_folder = getDataFolder(argv[0]);
+	printf("dataFolder: %s\n", sim_params->data_folder);
+	
 	for (i = 1; i < argc; i++) {
-		if (argv[i][0] != '-') {
-			//if (freopen(argv[i], "r", stdin) == NULL)
-			//try to open file
-			if ((sim_params->infile = fopen(argv[i],"r")) == NULL)
-				//failed: it must be a sequence
-				retval = argv[i];
-			else
-				if (sim_params->infile_name) free(sim_params->infile_name);
-				copy_string(&(sim_params->infile_name),argv[i]);
-			continue;
-		}
+	  if (argv[i][0] != '-') {
+	    //if (freopen(argv[i], "r", stdin) == NULL)
+	    //try to open file
+	    if ((sim_params->infile = fopen(argv[i],"r")) == NULL)
+	      //failed: it must be a sequence
+	      retval = argv[i];
+	    else
+	      if (sim_params->infile_name) free(sim_params->infile_name);
+	    copy_string(&(sim_params->infile_name),argv[i]);
+	    continue;
+	  }
 
-		opt = argv[i][1];
-		if (++i >= argc && opt != 'n')
-			opt = 0;
+	  opt = argv[i][1];
+	  if (++i >= argc && opt != 'n')
+	    opt = 0;
 
-		switch (opt) {
-		case 'a':
-			sscanf(argv[i], "%lf", &acceptance_rate);
-			if(acceptance_rate > 1.0 || acceptance_rate <= 0.0){
-			  fprintf(stderr,"Acceptance rate must be between 0.0 and 1.0, setting it to 0.5\n");
-			  acceptance_rate = 0.5; 	
-			}
-			sim_params->acceptance_rate = acceptance_rate;			
+	  switch (opt) {
+	    case 'a':
+	      sscanf(argv[i], "%lf", &acceptance_rate);
+	      if(acceptance_rate > 1.0 || acceptance_rate <= 0.0){
+		fprintf(stderr,"Acceptance rate must be between 0.0 and 1.0, setting it to 0.5\n");
+		acceptance_rate = 0.5; 	
+	      }
+	      sim_params->acceptance_rate = acceptance_rate;			
 			
-			break;
-		case 'A': //amplitude
-			sscanf(argv[i], "%lf,%d", &amplitude,&keep_amplitude_fixed);
-			if(amplitude > 0.0 || amplitude <= -M_PI){
-			  fprintf(stderr,"Amplitude must be between -PI and 0.0, setting it to -0.25\n");
-			  amplitude = -0.25;
-			}
-			sim_params->amplitude = amplitude;
-			sim_params->keep_amplitude_fixed = keep_amplitude_fixed;
-			break;
-		case 'b':
-			sscanf(argv[i], "%lf-%lf:%u,%u", &beta1, &beta2, &intrvl, &nswap_per_try);
-			sim_params->beta1 = beta1;
-			sim_params->beta2 = beta2;
-			sim_params->intrvl = intrvl;
-			sim_params->nswap_per_try = nswap_per_try;
-			break;
-		case 'c':
-			sscanf(argv[i],"%lf",&thermobeta);
-		    thermobeta = 298.0/(thermobeta+273.0);
-		    lowtemp = 1;
-			sim_params->thermobeta = thermobeta;
-			sim_params->lowtemp = lowtemp;
-			break;
-		case 'C':
-			sscanf(argv[i], "%d,%256s",&num_NS_per_checkpoint,checkpoint_filename);
-			checkpoint = 1;
-			sim_params->num_NS_per_checkpoint = num_NS_per_checkpoint;
-			sim_params->checkpoint_filename = realloc(sim_params->checkpoint_filename,DEFAULT_SHORT_STRING_LENGTH);
-			strcpy(sim_params->checkpoint_filename,checkpoint_filename);
-			sim_params->checkpoint = checkpoint;
-			break;
-		case 'f':
-			//if (freopen(argv[i], "r", stdin) == NULL)
-			//try to open file
-			if ((sim_params->infile = fopen(argv[i],"r")) == NULL)
-				//failed: it must be a sequence
-				retval = argv[i];
-			else
-				if (sim_params->infile_name) free(sim_params->infile_name);
-				copy_string(&(sim_params->infile_name),argv[i]);
-			break;
-		case 'm':
-		    sscanf(argv[i], "%u", &iter_max);
-			sim_params->iter_max = iter_max;
-			break;
-		case 'M':
-		    sscanf(argv[i],"%u",&(sim_params->number_initial_MC));
-		    break;
-		case 'n':
-		    NS = 1;
-			sim_params->NS = NS;
-		    i--;
-		    break;
-		case 'o':
-			//freopen(argv[i], "w", stdout);
-			if ((sim_params->outfile = fopen(argv[i],"w")) == NULL)
-				stop("Could not open output file.\n");
-			else
-				if (sim_params->outfile_name) free(sim_params->outfile_name);
-				copy_string(&(sim_params->outfile_name),argv[i]);
-			break;
-		case 'p':
-			if (sim_params->prm) free(sim_params->prm);
-			copy_string(&sim_params->prm,argv[i]);
-			break;
-		case 'd':
-			if (strcmp(argv[i],"hard_cutoff")==0) {
-				sim_params->protein_model.vdw_potential=HARD_CUTOFF_VDW_POTENTIAL;
-				set_hard_cutoff_default_params(&(sim_params->protein_model));
-			} else if (strcmp(argv[i],"lj")==0) {
-				sim_params->protein_model.vdw_potential=LJ_VDW_POTENTIAL;
-				set_lj_default_params(&(sim_params->protein_model));
-			} else if (strcmp(argv[i],"lj_hard_cutoff")==0) {
-				sim_params->protein_model.vdw_potential=LJ_VDW_POTENTIAL;
-				set_lj_default_params(&(sim_params->protein_model));
-				sim_params->protein_model.vdw_lj_neighbour_hard=1;
-				sim_params->protein_model.vdw_lj_hbonded_hard=1;
-			} else {
-				sprintf(error_string,"Unknown value for vdW potential model (%s).  It must be one of hard_cutoff and lj.",argv[i]);
-				stop(error_string);
-			}
-			break;
-		case 'r':
-			sscanf(argv[i], "%ux%u", &pace, &stretch);
-			sim_params->pace = pace;
-			sim_params->stretch = stretch;
-			break;
-		case 'R':
-			sscanf(argv[i], "%d",&checkpoint_counter);
-			if(checkpoint_counter != -1){
-			  restart_from_checkpoint = 1;
-			  sim_params->checkpoint_counter = checkpoint_counter;
-			  sim_params->restart_from_checkpoint = restart_from_checkpoint;
-			}
-			break;
-		case 's':
-			sscanf(argv[i], "%u", &seed);
-			sim_params->seed = seed;
-			break;
-		case 't':
-			sscanf(argv[i], "%x", &tmask);
-			sim_params->tmask = tmask;
-			break;
-		default:
-			fprintf(stderr, VER USE PARAM_USE, argv[0]);
-			helps();
-			exit(EXIT_FAILURE);
-		}
+	      break;
+	  case 'A': //amplitude
+	    sscanf(argv[i], "%lf,%d", &amplitude,&keep_amplitude_fixed);
+	    if(amplitude > 0.0 || amplitude <= -M_PI){
+	      fprintf(stderr,"Amplitude must be between -PI and 0.0, setting it to -0.25\n");
+	      amplitude = -0.25;
+	    }
+	    sim_params->amplitude = amplitude;
+	    sim_params->keep_amplitude_fixed = keep_amplitude_fixed;
+	    break;
+	  case 'b':
+	    sscanf(argv[i], "%lf-%lf:%u,%u", &beta1, &beta2, &intrvl, &nswap_per_try);
+	    sim_params->beta1 = beta1;
+	    sim_params->beta2 = beta2;
+	    sim_params->intrvl = intrvl;
+	    sim_params->nswap_per_try = nswap_per_try;
+	    break;
+	  case 'c':
+	    sscanf(argv[i],"%lf",&thermobeta);
+	    thermobeta = 298.0/(thermobeta+273.0);
+	    lowtemp = 1;
+	    sim_params->thermobeta = thermobeta;
+	    sim_params->lowtemp = lowtemp;
+	    break;
+	  case 'C':
+	    sscanf(argv[i], "%d,%256s",&num_NS_per_checkpoint,checkpoint_filename);
+	    checkpoint = 1;
+	    sim_params->num_NS_per_checkpoint = num_NS_per_checkpoint;
+	    sim_params->checkpoint_filename = realloc(sim_params->checkpoint_filename,DEFAULT_SHORT_STRING_LENGTH);
+	    strcpy(sim_params->checkpoint_filename,checkpoint_filename);
+	    sim_params->checkpoint = checkpoint;
+	    break;
+	  case 'f':
+	    //if (freopen(argv[i], "r", stdin) == NULL)
+	    //try to open file
+	    if ((sim_params->infile = fopen(argv[i],"r")) == NULL)
+	      //failed: it must be a sequence
+	      retval = argv[i];
+	    else
+	      if (sim_params->infile_name) free(sim_params->infile_name);
+	    copy_string(&(sim_params->infile_name),argv[i]);
+	    break;
+	  case 'm':
+	    sscanf(argv[i], "%u", &iter_max);
+	    sim_params->iter_max = iter_max;
+	    break;
+	  case 'M':
+	    sscanf(argv[i],"%u",&(sim_params->number_initial_MC));
+	    break;
+	  case 'n':
+	    NS = 1;
+	    sim_params->NS = NS;
+	    i--;
+	    break;
+	  case 'o':
+	    //freopen(argv[i], "w", stdout);
+	    if ((sim_params->outfile = fopen(argv[i],"w")) == NULL)
+	      stop("Could not open output file.\n");
+	    else
+	      if (sim_params->outfile_name) free(sim_params->outfile_name);
+	    copy_string(&(sim_params->outfile_name),argv[i]);
+	    break;
+	  case 'p':
+	    if (sim_params->prm) free(sim_params->prm);
+	    copy_string(&sim_params->prm,argv[i]);
+	    break;
+	  case 'd':
+	    if (strcmp(argv[i],"hard_cutoff")==0) {
+	      sim_params->protein_model.vdw_potential=HARD_CUTOFF_VDW_POTENTIAL;
+	      set_hard_cutoff_default_params(&(sim_params->protein_model));
+	    } else if (strcmp(argv[i],"lj")==0) {
+	      sim_params->protein_model.vdw_potential=LJ_VDW_POTENTIAL;
+	      set_lj_default_params(&(sim_params->protein_model));
+	    } else if (strcmp(argv[i],"lj_hard_cutoff")==0) {
+	      sim_params->protein_model.vdw_potential=LJ_VDW_POTENTIAL;
+	      set_lj_default_params(&(sim_params->protein_model));
+	      sim_params->protein_model.vdw_lj_neighbour_hard=1;
+	      sim_params->protein_model.vdw_lj_hbonded_hard=1;
+	    } else {
+	      sprintf(error_string,"Unknown value for vdW potential model (%s).  It must be one of hard_cutoff and lj.",argv[i]);
+	      stop(error_string);
+	    }
+	    break;
+	  case 'r':
+	    sscanf(argv[i], "%ux%u", &pace, &stretch);
+	    sim_params->pace = pace;
+	    sim_params->stretch = stretch;
+	    break;
+	  case 'L':
+	    copy = malloc(sizeof(char)*strlen(argv[i])+1);
+	    strcpy(copy, argv[i]);
+	    sim_params->nbRotLibs = countToken(copy, ":");
+	    sim_params->rotamer_libs = getTokens(argv[i], ":", sim_params->nbRotLibs);
+	    for (int ii=0; ii< sim_params->nbRotLibs; ii++)
+	      printf("sysRotLib %d/%d \"%s\"\n", ii, sim_params->nbRotLibs, sim_params->rotamer_libs[ii]);
+	    break;
+	  case 'l':
+	    copy = malloc(sizeof(char)*strlen(argv[i])+1);
+	    strcpy(copy, argv[i]);
+	    sim_params->nbUserRotLibs = countToken(copy, ":");
+	    sim_params->userRotamer_libs = getTokens(copy, ":", sim_params->nbUserRotLibs);
+	    break;
+	  case 'R':
+	    sscanf(argv[i], "%d",&checkpoint_counter);
+	    if(checkpoint_counter != -1){
+	      restart_from_checkpoint = 1;
+	      sim_params->checkpoint_counter = checkpoint_counter;
+	      sim_params->restart_from_checkpoint = restart_from_checkpoint;
+	    }
+	    break;
+	  case 's':
+	    sscanf(argv[i], "%u", &seed);
+	    sim_params->seed = seed;
+	    break;
+	  case 't':
+	    sscanf(argv[i], "%x", &tmask);
+	    sim_params->tmask = tmask;
+	    break;
+	  case 'T':
+	    if (sim_params->prm) free(sim_params->target_folder);
+	    char folderName[254];
+	    strcpy(folderName, argv[i]);
+	    if (argv[i][strlen(argv[i])-1]!=osSep)
+	      sprintf(folderName, "%s%c", argv[i], osSep);
+	    else
+	      strcpy(folderName, argv[i]);
+	    copy_string(&sim_params->target_folder, folderName);
+	    break;
+	  default:
+	    fprintf(stderr, VER USE PARAM_USE, argv[0]);
+	    helps();
+	    exit(EXIT_FAILURE);
+	  }
 	}
 
 	if (sim_params->seq) free(sim_params->seq);
 	copy_string(&(sim_params->seq),retval);
+
+	// check that the data folder contains the required files
+	char msg[254], buffer[254];
+	FILE *f;
+
+	DIR* dir = opendir(sim_params->data_folder);
+	if (dir) {	  /* Directory exists. */
+	  closedir(dir);
+	} else if (ENOENT == errno) {
+	  sprintf(msg, "data folder %s does not exist", sim_params->data_folder);
+	  stop(msg);
+	} else {
+	  sprintf(msg, "couldn't open data folder %s", sim_params->data_folder);
+	  stop(msg);
+	  /* opendir() failed for some other reason. */
+	}
+	strcpy(buffer, sim_params->data_folder);
+	strcat(buffer, "ramaprob.data");
+	f = fopen(buffer, "r");
+	if (f == NULL) {
+	  sprintf(msg, "ramaprob.data not found in %s", sim_params->data_folder);
+	  stop(msg);
+	} else fclose(f);
+
+	// count rotamer table entries
+	nbCanAA = 20; // from stdaa.lib
+
+	sim_params->rlfullnames = malloc(sizeof(char *)*(sim_params->nbRotLibs+sim_params->nbUserRotLibs));
+	// build full names with paths for system rotamer libraries
+	int rli;
+	for (rli=0; rli < sim_params->nbRotLibs; rli++) {
+	  sim_params->rlfullnames[rli] = malloc(sizeof(char)*(strlen(sim_params->data_folder)+12+strlen(sim_params->rotamer_libs[rli])));
+	  sprintf(sim_params->rlfullnames[rli], "%srotamers%c%s.lib", sim_params->data_folder, osSep, sim_params->rotamer_libs[rli]);
+	  f = fopen(sim_params->rlfullnames[rli], "r");
+	  if (f == NULL) {
+	    sprintf(msg, "rotamer library %s not found in %s\n", sim_params->rlfullnames[rli], sim_params->data_folder);
+	    stop(msg);
+	  } else {
+	    fclose(f);
+	    int nbrot = countRotamers(sim_params->rlfullnames[rli]);
+	    printf("found %d rotamers in %s\n", nbrot, sim_params->rlfullnames[rli]);
+	    nbCanAA += nbrot;
+	  }
+	}
+	for (int jj=0; jj < sim_params->nbUserRotLibs; jj++) {
+	  sim_params->rlfullnames[rli] = malloc(sizeof(char)*(strlen(sim_params->userRotamer_libs[jj])+1));
+	  strcpy(sim_params->rlfullnames[rli], sim_params->userRotamer_libs[jj]);
+	  int nbrot = countRotamers(sim_params->rlfullnames[rli]);
+	  printf("found %d rotamers in %s\n", nbrot, sim_params->rlfullnames[rli]);
+	  nbCanAA += nbrot;
+	  rli++;
+	}
+
+	strcpy(buffer, sim_params->target_folder);
+	strcat(buffer, "constrains");
+	f = fopen(buffer, "r");
+	if (f == NULL) {
+	  sprintf(msg, "constrains file not found in %s", sim_params->target_folder);
+	  stop(msg);
+	} else fclose(f);
 
 	return sim_params->seq;
 }
@@ -920,11 +1061,7 @@ void AD_init(Chain *chain, simulation_params *sim_params) {
 		// so that we can load the proper maps. This replace the code above
 		// that was working for a predefined set or amino acids
 		// 31 AutoDock atom types
-		char atypes[32][3] = {
-		      "C", "N", "OA", "HD", "SA", "A", "NA", "H", "HS", "NS",
-		      "NX","OS","OX", "F",  "Mg", "MG", "P", "S", "SX", "Cl",
-		      "CL","Ca","Mn","MN","Fe","FE","Zn","ZN","Br","BR","I"};
-		int hasType[32];
+
 		// force hasType to 1 for C N OA and HD for backbone atoms
 		for (int i = 0; i< 4; i++) hasType[i] = 1;
 		// hasType for all other atom types is initially 0
@@ -946,16 +1083,18 @@ void AD_init(Chain *chain, simulation_params *sim_params) {
 		/* for (int i = 0; i< 32; i++) printf("%d ",hasType[i]); */
 		/* printf("\n"); */
 
-		transpts_initialise();
-		gridbox_initialise();
+		transpts_initialise(sim_params);
+		gridbox_initialise(sim_params);
 
-		gridmap_initialise("rigidReceptor.e.map", -1);
-		gridmap_initialise("rigidReceptor.d.map", -2);
-		/* elements are 0:C, 1:N, 2:O, 3:HD, 4:SA, 5:CA, 6:NA ,7:elec 8:desolv      */
 		char mapname[255];
+		sprintf(mapname, "%srigidReceptor.e.map", sim_params->target_folder);
+		gridmap_initialise(mapname, -1);
+		sprintf(mapname, "%srigidReceptor.d.map", sim_params->target_folder);
+		gridmap_initialise(mapname, -2);
+		/* elements are 0:C, 1:N, 2:O, 3:HD, 4:SA, 5:CA, 6:NA ,7:elec 8:desolv      */
 		for (int i = 0; i< 32; i++) {
 		  if (hasType[i]==1) {
-		    sprintf(mapname, "rigidReceptor.%s.map", atypes[i]);
+		    sprintf(mapname, "%srigidReceptor.%s.map", sim_params->target_folder, atypes[i]);
 		    printf("loading map %s\n", mapname);
 		    gridmap_initialise(mapname, i);
 		  }
@@ -971,8 +1110,15 @@ int main(int argc, char *argv[])
 
 	//char *seq;
 	simulation_params sim_params;
-	
+
 	signal(SIGTERM, graceful_exit);
+
+	int osSep;
+#ifdef _WIN32
+	osSep = '\\';
+#else
+	osSep = '/';
+#endif
 
 #ifdef PARALLEL
 	/* initialise MPI */
@@ -980,7 +1126,6 @@ int main(int argc, char *argv[])
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 #endif
-
 	
 	/* SET SIMULATION PARAMS */
 	param_initialise(&sim_params); //set default
@@ -990,8 +1135,6 @@ int main(int argc, char *argv[])
 	//param_print(sim_params,sim_params.outfile); //default + read-in
 
 	set_random_seed(&sim_params);
-
-
 
 	/* set different default simulation params for NS and MC */
 	if(sim_params.NS){
@@ -1013,7 +1156,33 @@ int main(int argc, char *argv[])
 	//model_param_initialise(&(sim_params.protein_model));
 	model_param_read(sim_params.prm,&(sim_params.protein_model),&(sim_params.flex_params));
 
-	ramaprob_initialise();
+	ramaprob_initialise(sim_params.data_folder);
+
+	//intialize_AASCRotTable();
+	char buffer[254];
+
+	// allocate table of rotamers structures
+	_AASCRotTable = malloc(nbCanAA*sizeof(struct _AASCRot));
+	if (_AASCRotTable == NULL) {
+	  sprintf(buffer, "failed to allocate rotamer table for %d rotamers\n", nbCanAA);
+	  stop(buffer);
+	} else {
+	  printf("allocated space for rotamers for %d amino acids\n", nbCanAA);
+	}
+	// load rotamers
+	// load stdaa always
+	sprintf(buffer, "%s%crotamers%cstdaa.lib", sim_params.data_folder, osSep, osSep);
+	int lastInd =0;
+	lastInd = initialize_AASCRotTable_from_file(buffer, lastInd);
+	    
+	// load additional rotamer libraries
+	for (int rli=0; rli < sim_params.nbRotLibs+sim_params.nbUserRotLibs; rli++)
+	  lastInd = initialize_AASCRotTable_from_file(sim_params.rlfullnames[rli], lastInd);
+
+	if (lastInd-1 > nbCanAA) {
+	  sprintf(buffer, "allocate memory for %d entries in rotamer table but read %d\n", nbCanAA, lastInd-1);
+	  stop(buffer);
+	}
 	
 	initialize_sidechain_properties(&(sim_params.protein_model));
 	vdw_cutoff_distances_calculate(&sim_params, stderr, 0);
@@ -1032,10 +1201,7 @@ int main(int argc, char *argv[])
 	    /* allocate memory for the biasmap */
             Biasmap *biasmap = (Biasmap *)malloc(sizeof(Biasmap));
       	    biasmap->distb = NULL;
-
-	    //intialize_AASCRotTable();
-	    initialize_AASCRotTable_from_file();
-
+	    
 	    /* read in / generate the peptide */
 	    if (sim_params.seq != NULL) {
 
@@ -1130,7 +1296,7 @@ int main(int argc, char *argv[])
 			tests(chain, biasmap, sim_params.tmask, &sim_params, 0x10, NULL);
 #endif
 		   }
-	   }
+	    }
 
 	/* MC */
 	simulate(chain,chaint,biasmap,&sim_params);
@@ -1164,14 +1330,19 @@ int main(int argc, char *argv[])
 		free(Xpts);
 		free(Ypts);
 		free(Zpts);
-		for (int atype = 0; atype < sizeof(gridmapvalues) / sizeof(gridmapvalues)[0]; atype++)
-			free(gridmapvalues[atype]);
+		//for (int atype = 0; atype < sizeof(gridmapvalues) / sizeof(gridmapvalues)[0]; atype++)
+		// 	free(gridmapvalues[atype]);
+		for (int atypeInd=0; atypeInd<MAX_ATOM_TYPES; atypeInd++)
+		    if (hasType[atypeInd]==1) free(gridmapvalues[atypeInd]);
+		for (int rli=0; rli < sim_params.nbRotLibs+sim_params.nbUserRotLibs; rli++)
+		  free(sim_params.rlfullnames[rli]);
+		free(sim_params.rlfullnames);
 	}
 	free(ramaprob);
 	free(alaprob);
 	free(glyprob);
 
 	//print out the timing
-	fprintf(stderr,"The program has successfully finished in %d seconds. :)  Bye-bye!\n", time(NULL)- startTime);
+	fprintf(stderr,"The program has successfully finished in %ld seconds. :)  Bye-bye!\n", time(NULL)- startTime);
 	return EXIT_SUCCESS;
 }

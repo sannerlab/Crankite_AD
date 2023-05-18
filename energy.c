@@ -26,7 +26,13 @@
 double centerX, centerY, centerZ, spacing;
 int NX, NY, NZ;
 double targetBest, currTargetEnergy;
-double *gridmapvalues[9];
+const char atypes[MAX_ATOM_TYPES][3]= {
+	  "C", "N", "OA", "HD", "SA", "A", "NA", "H", "HS", "NS",
+	  "NX","OS","OX", "F",  "Mg", "MG", "P", "S", "SX", "Cl",
+	  "CL","Ca","Mn","MN","Fe","FE","Zn","ZN","Br","BR","I"};
+
+double *gridmapvalues[MAX_ATOM_TYPES];
+int hasType[MAX_ATOM_TYPES];
 double *emapvalues;
 double *dmapvalues;
 
@@ -366,10 +372,11 @@ double lower_gridenergy(double E) {
 }
 
 /*init the size and center and spacing of AD gridbox*/
-void gridbox_initialise() {
+void gridbox_initialise(simulation_params *sim_params) {
 	FILE *gridmap = NULL;
-	gridmap = fopen("rigidReceptor.C.map", "r");
 	char line[256];
+	sprintf(line, "%srigidReceptor.C.map", sim_params->target_folder);
+	gridmap = fopen(line, "r");
 	int i = 0, j = 0;
 	while (fgets(line, sizeof(line), gridmap)) {
 		if (i < 3) {
@@ -445,9 +452,17 @@ void gridmap_initialise(char *filename, int atype) {
 }
 
 /* initialise the tranpoints from the file, if no transpoints found, add the box center */
-void transpts_initialise() {
+void transpts_initialise(simulation_params *sim_params) {
 	FILE *transpts_file = NULL;
-	transpts_file = fopen("transpoints", "r");
+	char filename[255];
+	sprintf(filename, "%stranspoints", sim_params->target_folder);
+	
+	transpts_file = fopen(filename, "r");
+	if (transpts_file == NULL) {
+	  char msg[512];
+	  sprintf(msg, "could not open file %s\n", filename);
+	  stop(msg);
+	}
 	char line[256];
 	int i = 0, j = 0;	
 	fgets(line, sizeof(line), transpts_file);
@@ -497,9 +512,12 @@ void transpts_initialise() {
 }
 
 /*initialise the ramachandra probability from ramaprob.data file*/
-void ramaprob_initialise() {
+void ramaprob_initialise(char *folder) {
 	FILE *ramaprob_file = NULL;
-	ramaprob_file = fopen("ramaprob.data", "r");
+	char buffer[254];
+	strcpy(buffer, folder);
+	strcat(buffer, "ramaprob.data");
+	ramaprob_file = fopen(buffer, "r");
 	if (ramaprob_file == NULL) {
 		stop("Missing ramaprob.data file.");
 	}
@@ -755,7 +773,7 @@ double bias(Biasmap *biasmap, AA *a, AA *b, model_params *mod_params)
 		subtract(x, a->ca, a->n);
 		subtract(y, b->ca, a->ca);
 		subtract(z, b->c, b->ca);
-		//set helix eta alpha phase shift
+		//set helix eta alpha phaes shift
 		if (Distb(i, j) > 0.) dst2 = -phasindihedral(x,y,z, 0.13917, 0.99); 
 		else dst2 = -cosdihedral(x, y, z); 
 		//dst2 = -phasindihedral(x,y,z, 0.985,0.174); //strand
@@ -1302,15 +1320,16 @@ double sbond_energy(int start, int end, Chain *chain,  Chaint *chaint, Biasmap *
   int shortii=0;
   int shortjj=0;
   for(int i = 0; i < number_of_cys - 1; i++){
-	for(int j = i+1; j < number_of_cys; j++) {
-		if (i==shorti || j==shortj || i==shortj || j==shorti)
-			cysdist[i*number_of_cys+j] = cysdist[i*number_of_cys+j] = 10000000;
-		else if (cysdist[i*number_of_cys+j]<shortestdist && cyslist[j]-cyslist[i]!=1){
-			shortestdist=cysdist[i*number_of_cys+j];
-			shortii = i;
-			shortjj = j;
-		}
-	}
+    for(int j = i+1; j < number_of_cys; j++) {
+      if (i==shorti || j==shortj || i==shortj || j==shorti) {
+	cysdist[i*number_of_cys+j] = 10000000;
+	cysdist[i*number_of_cys+j] = 10000000;
+      } else if (cysdist[i*number_of_cys+j]<shortestdist && cyslist[j]-cyslist[i]!=1) {
+	shortestdist=cysdist[i*number_of_cys+j];
+	shortii = i;
+	shortjj = j;
+      }
+    }
   }
     
   if (shortii+shortjj == 0) {
@@ -2056,7 +2075,6 @@ double scoreSideChainNoClashNew(AA *a, double* setCoords, int ind, int numRand)
   int indHIE = getSideChainTemplateIndexFromName("HIE");
   int indHID = getSideChainTemplateIndexFromName("HID");
   if (isHis) { // HIS or HIE or HID
-    printf("FUGU5: trying HIE (%d) and HID (%d), isHis=%d\n", indHIE, indHID, isHis);
     charges = _AASCRotTable[indHIE].charges; // HIE
     atypes = _AASCRotTable[indHIE].atypes;
     coords = _AASCRotTable[indHIE].coords;
@@ -2464,9 +2482,9 @@ void ADenergyNoClash(double* ADEnergies, int start, int end, Chain *chain, Chain
 		coordsSet[i] = 9999.;
 	}
 
-	int linked = 0;
+	int linked;
 	if (end > chain->NAA-1) linked = 1;
-
+	else linked = 0;
 
 	for (i = 1; i <= chain->NAA-1; i++){
 		if (chaint!=NULL && indMoved(i, start, (end-1)%(chain->NAA-1)+1 )) {
@@ -2974,7 +2992,7 @@ double energy1(AA *a, model_params *mod_params)
 /* interactions between two amino acids */
 double energy2cyclic(Biasmap *biasmap, AA *a,  AA *b, model_params *mod_params)
 {
-	double d2, retval = 0.0;
+	double retval = 0.0;
 
 	/* Go-type bias potential */
 	
@@ -3066,9 +3084,9 @@ double cyclic_energy(AA *a, AA *b, int type) {
 
 		double CaDistance = 0.0;
 		double NCDistance = 0.0;
-		double HODistance = 0.0;
-		double NODistance = 0.0;
-		double HCDistance = 0.0;
+		//double HODistance = 0.0;
+		//double NODistance = 0.0;
+		//double HCDistance = 0.0;
 
 		//NCDistance = distance(a->n, b->c);
 		CaDistance = distance(a->ca, b->ca);
@@ -3598,7 +3616,7 @@ void energy_contributions_in_energy_c(Chain * chain,Biasmap *biasmap, double tot
 	    else
 		seqdist = 1000 * abs( chain->aa[j].chainid - chain->aa[i].chainid);
 
-		switch ( seqdist ) {
+	    switch ( seqdist ) {
 		//switch (j - i) {
 		case 1:
 			exclude_energy += exclude_neighbor(&(chain->aa[i]),&(chain->aa[j]), mod_params);

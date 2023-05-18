@@ -4,6 +4,9 @@
 ** Copyright (c) 2007 - 2013 Nikolas Burkoff, Csilla Varnai and David Wild
 */
 
+#ifndef PARAMSDEF
+#define PARAMSDEF
+
 
 #define DEFAULT_LONG_STRING_LENGTH 1024
 #define DEFAULT_SHORT_STRING_LENGTH 256
@@ -276,6 +279,13 @@ typedef struct {
   /* general simulation */
   char *infile_name;    /* input filename */
   char *outfile_name;   /* output filename */
+  char *data_folder;  /* folder containing data such as ramaprob.data rotamers.lib etc */
+  char **rotamer_libs;  /* file names of rotamer libraries from data_folder to be loaded, ':' separated */
+  char **userRotamer_libs;  /* file names and paths of user rotamer libraries to be loaded */
+  int nbRotLibs;
+  int nbUserRotLibs;
+  char **rlfullnames; /* rotamer libraries file names with path */
+  char *target_folder; /* fpath to folder providing .map and transpoints files */
   FILE *infile;
   FILE *outfile;
   unsigned int pace;
@@ -380,3 +390,4 @@ void print_vdw_cutoff_distances(model_params *mod_params, FILE *outfile);
 void model_param_print(model_params this, FILE *outfile);
 void param_print(simulation_params this, FILE *outfile);
 void flex_param_print(FLEX_params this, FILE *outfile);
+#endif

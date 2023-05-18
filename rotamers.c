@@ -10,7 +10,13 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include "params.h"
 #include "rotamers.h"
+#include "params.h"
+#include "vector.h"
+#include "rotation.h"
+#include "peptide.h"
+#include "energy.h"
 
 // dynamically allocated table holding pointers to AASCRot
 // describing full atom AA side chain rotamers
@@ -23,7 +29,7 @@ int nbCanAA = 0;
 int getSideChainTemplateIndexFromName(char *str) {
   for (int i=0; i<nbCanAA; i++) {
     if (strcmp(str, _AASCRotTable[i].name)==0) {
-      //printf("FUGU %s %d", str, i);
+      //printf("FUGU %s %d\n", str, i);
       return i;
     }
   }
@@ -33,7 +39,7 @@ int getSideChainTemplateIndexFromName(char *str) {
 // 1 letter code for std AA
 char IDchars[18] = "RNDCQEHILKMFPSTWYV";
 
-const char * aanames[] = {
+char * aanames[] = {
   "ARG","ASN","ASP","CYS","GLN","GLU","HIS","ILE","LEU","LYS","MET","PHE","PRO","SER","THR","TRP","TYR","VAL",
 };
 
@@ -43,7 +49,7 @@ int getSideChainTemplateIndexFromIDchar(char id) {
   for (int i=0; i<18; i++) {
     if (c[i]==id) {
       int ind = getSideChainTemplateIndexFromName(aanames[i]);
-      printf("FAGA %c %s %d\n", id, aanames[i], ind);
+      //printf("FAGA %c %s %d\n", id, aanames[i], ind);
       return ind;
     }
   }
@@ -60,7 +66,7 @@ int countRotamers(char *filename) {
   // test for files not existing.
   if (in_file == NULL)
     {  
-      printf("Error! Could not open file %s\n",filename);
+      printf("Error! countRotamers: Could not open file %s\n",filename);
       exit(-1);
     }
   while ( 1 ) 
@@ -80,13 +86,11 @@ int countRotamers(char *filename) {
 // structure
 int getRotamerForAA(FILE *in_file, struct _AASCRot *aarot, char *aaname)
 {
-  char *line=NULL, *aname, *token=NULL, *rest=NULL;
+  char line[256], coarsePot[20];
   int firstNonSpace=0;
-  size_t len = 0;
-  size_t read;
-  int nbRot=-1, nbAt=-1;
+  int read;
   
-  while ((read = getline(&line, &len, in_file)) != -1) {
+  while ((read = fgets(line, sizeof(line), in_file)) != -1) {
     //printf("Retrieved line of length %zu:\n", read);
     //printf("%s", line);
     if (read==0) {
@@ -99,10 +103,12 @@ int getRotamerForAA(FILE *in_file, struct _AASCRot *aarot, char *aaname)
     if (strncmp(&line[firstNonSpace], "rotamer", 7)==0) break;
   }
   // read rotamer declaration line
-  read = sscanf(&line[firstNonSpace], "rotamer %s %d %d", aaname, &aarot->nbRot, &aarot->nbAtoms);
+  read = sscanf(&line[firstNonSpace], "rotamer %s %s %d %d", aaname, coarsePot, &aarot->nbRot, &aarot->nbAtoms);
   // allocate memory for rotamer name, atom names, types, charges and coordinates pointer for
   // rotamers
   aarot->name = (char *)malloc((strlen(aaname)+1)*sizeof(char));
+  aarot->rotProbas = (double *)malloc(aarot->nbAtoms*sizeof(double));
+  aarot->coarse_type = (char *)malloc((strlen(coarsePot)+1)*sizeof(char));
   aarot->atypes = (int *)malloc(aarot->nbAtoms*sizeof(int));
   aarot->charges = (double *)malloc(aarot->nbAtoms*sizeof(double));
   aarot->atnames = (char *)malloc(1+aarot->nbAtoms*5*sizeof(char));
@@ -110,26 +116,52 @@ int getRotamerForAA(FILE *in_file, struct _AASCRot *aarot, char *aaname)
 
   // fill out the structure
   strcpy(aarot->name, aaname); // rotamer name
+  strcpy(aarot->coarse_type, coarsePot); // rotamer name
 
-  // read the atom types
-  for (int i=0; i<aarot->nbAtoms; i++) {
-    read = fscanf(in_file, "%d", &aarot->atypes[i]);
+  // read the rotamer probabilies
+  for (int i=0; i<aarot->nbRot; i++) {
+    read = fscanf(in_file, "%lf", &aarot->rotProbas[i]);
     if (read!=1) return 0;
   }
+  fscanf(in_file, "%c", line); while (line[0]!='\n') fscanf(in_file, "%c", line); // get rid of trailing spaces and NL
+
+  // read the atom types
+  read = fgets(line, sizeof(line), in_file);
+  char *p = NULL;
+  p = strtok(line, " ");
+  if (p != NULL) p[strcspn(p, "\r\n")] = 0; // replace LF, CR, CRLF, LFCR, ... with 0
+  for (int i=0; i<aarot->nbAtoms && p != NULL; i++) {
+    // printf("atomtype str=[%s]\n", p);
+    for (int j=0; j<MAX_ATOM_TYPES; j++)
+      {
+	if (strcmp(p, atypes[j])==0) {
+	  aarot->atypes[i] = j;
+	  break;
+	}
+      }
+    p = strtok(NULL," ");
+    if (p != NULL) p[strcspn(p, "\r\n")] = 0; // replace LF, CR, CRLF, LFCR, ... with 0
+  }
+
+  // read the atom types
+  // for (int i=0; i<aarot->nbAtoms; i++) {
+  //  read = fscanf(in_file, "%d", &aarot->atypes[i]);
+  //  if (read!=1) return 0;
+  // }
 
   // read the partial charges
   for (int i=0; i<aarot->nbAtoms; i++) {
     read = fscanf(in_file, "%lf", &aarot->charges[i]);
     if (read!=1) return 0;
   }
-  fscanf(in_file, "%c", line); // get rid of trailing NL
+  fscanf(in_file, "%c", line); while (line[0]!='\n') fscanf(in_file, "%c", line); // get rid of trailing spaces and NL
 
   // read the atom names
   for (int i=0; i<aarot->nbAtoms; i++) {
     read = fscanf(in_file, "%5c", &aarot->atnames[i*5]);
     //printf("read %ld [%s]\n", read, &aarot->atnames[i*5]);
   }
-  fscanf(in_file, "%c", line); // get rid of trailing NL
+  fscanf(in_file, "%c", line); while (line[0]!='\n') fscanf(in_file, "%c", line); // get rid of trailing spaces and NL
 
   // read the atomic coordinates
   double *cFromFile = malloc(aarot->nbRot*aarot->nbAtoms*3*sizeof(double));
@@ -152,7 +184,7 @@ int getRotamerForAA(FILE *in_file, struct _AASCRot *aarot, char *aaname)
 
   /* printf("found rotamer %ld %s %d %d\n", read, aaname, aarot->nbRot,  aarot->nbAtoms); */
   /* printf("    "); */
-  /* for (int i=0; i<aarot->nbAtoms; i++) printf("%d ", aarot->atypes[i]); */
+  /* for (int i=0; i<aarot->nbAtoms; i++) printf(" %d ", aarot->atypes[i]); */
   /* printf("\n    "); */
   /* for (int i=0; i<aarot->nbAtoms; i++) printf("%lf ", aarot->charges[i]); */
   /* printf("\n    %s\n", aarot->atnames); */
@@ -161,31 +193,30 @@ int getRotamerForAA(FILE *in_file, struct _AASCRot *aarot, char *aaname)
 }
 
 // create the table from rotamers.lib
-void initialize_AASCRotTable_from_file()
+int initialize_AASCRotTable_from_file(char *filename, int lastIndex)
 {
   /* create _AASCRotTable for 20 standard amino acids */
-  struct _AASCRot AASCRot;
   int i=0, retval;
-  char filename[]="rotamers.lib";
   char aaname[] = "UNK";
-  
-  nbCanAA = countRotamers(filename);
+
+  int nbRot = countRotamers(filename);
 
   // allocate table of rotamers structures
-  _AASCRotTable = malloc(nbCanAA*sizeof(struct _AASCRot));
+  //_AASCRotTable = malloc(nbCanAA*sizeof(struct _AASCRot));
 
   // load the rotamers
   FILE *in_file = fopen(filename, "r");
-  for (i=0; i<nbCanAA; i+=1) {
-    retval = getRotamerForAA(in_file, &_AASCRotTable[i], &aaname[0]);
+  for (i=0; i<nbRot; i+=1) {
+    retval = getRotamerForAA(in_file, &_AASCRotTable[lastIndex+i], &aaname[0]);
     if (retval==1) {
-      printf("loaded rotamer %s at index %d\n", aaname, i);
+      printf("loaded rotamer %4s at index %3d from %s\n", aaname, lastIndex+i, filename);
     } else {
-      printf("Error: failed to load rotamer %s (index %d) from file %s\n",aaname, i,filename);
+      printf("Error: failed to load rotamer %s (index %d) from file %s\n",aaname, i, filename);
       exit(-1);
     }
   }
-  if (nbCanAA != i) printf("ERROR: intialize_AASCRotTable error while loading rotamers\n");
-  else printf("loaded rotamers for %d amino acid sidechains\n", nbCanAA);
+  //if (nbCanAA != i) printf("ERROR: intialize_AASCRotTable error while loading rotamers\n");
+  //else printf("loaded rotamers for %d amino acid sidechains\n", nbCanAA);
   fclose(in_file);
+  return lastIndex+nbRot;
 }

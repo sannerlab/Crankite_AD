@@ -11,6 +11,7 @@
 #include<string.h>
 #include<math.h>
 #include<float.h>
+#include<ctype.h>
 
 //#include"canonicalAA.h"
 #include"rotamers.h"
@@ -933,10 +934,9 @@ void build_peptide_from_sequence(Chain * chain, Chaint *chaint, char *str, simul
 	  dAA[next] = 0; // L- by default
 	}
 	int next_chain_id = 1; /* starting from 1 */
-	char sideChainTemplateName[100];
 	next = 0;
 	for (int j = 0; str[j] != '\0'; j++){
-	    if (str[j]=='&') { /* this AA has to be d */
+	    if (str[j]=='&') { /* this AA has to be DEXTRO */
 	        dAA[next] = 1;
 	    } else if (str[j]=='<') { /* this AA has a special side chain, get its name */
 	        int count = 0;
@@ -978,33 +978,59 @@ void build_peptide_from_sequence(Chain * chain, Chaint *chaint, char *str, simul
 
 	/* parse the string */
 	for (i = 0; str_without_separator[i] != '\0'; i++) {
-		chain->aa[i + 1].id = (str_without_separator[i] & COD) | 0x40;
-		chain->aa[i + 1].etc = (str_without_separator[i] & ~COD);
-		chain->aa[i + 1].num = i + 1;	/* enumerate */
-		chain->aa[i + 1].chainid = chain_ids[i]; /* starting from 0 */
-		chain->aa[i + 1].sideChainTemplateIndex = -1;
-		
-		if (dAA[i]==1) {
-		  chain->aa[i + 1].etc &= ~LEV; /* make it dextro */
-		}
-		if (SCTnames[i]!=NULL) {
-		    int index = getSideChainTemplateIndexFromName(SCTnames[i]);
-		    if (index==-1) {
-		        fprintf(stderr, "Could not find SideChainTemplateIndex for <%s>\n", SCTnames[i]);
-			stop("missing side chain template");
-		    }
-		    chain->aa[i + 1].sideChainTemplateIndex = index;
-		} else {
-		  chain->aa[i + 1].sideChainTemplateIndex = getSideChainTemplateIndexFromIDchar(chain->aa[i + 1].id);
-		}
-		//printf("for AA %c got Sidechain template index %d\n", chain->aa[i + 1].id, chain->aa[i + 1].sideChainTemplateIndex);
-		if (chain->aa[i + 1].sideChainTemplateIndex==-1) {
-		  if (chain->aa[i + 1].id!='A' && chain->aa[i + 1].id!='G') {
-		    fprintf(stderr, "Could not find SideChainTemplateIndex for amino acid %c\n", chain->aa[i + 1].id);
-		    //stop("Failed to find SideChainTemplateIndex for amino acid");
-		  }
-		}
-		fputc(str_without_separator[i], stderr);
+	  chain->aa[i + 1].id = (str_without_separator[i] & COD) | 0x40;
+	  chain->aa[i + 1].etc = (str_without_separator[i] & ~COD);
+	  chain->aa[i + 1].num = i + 1;	/* enumerate */
+	  chain->aa[i + 1].chainid = chain_ids[i]; /* starting from 0 */
+	  chain->aa[i + 1].sideChainTemplateIndex = -1;
+
+	  if (dAA[i]==1) {
+	    chain->aa[i + 1].etc &= ~LEV; /* make it dextro */
+	  }
+	  
+	  if (SCTnames[i]!=NULL) {
+	    // we have a template for sidechain rotamers
+	    int index;
+	    if (dAA[i]==1) {
+	      char name[255];
+	      sprintf(name, "%s_D", SCTnames[i]);
+	      index = getSideChainTemplateIndexFromName(name);
+	    } else {
+	      index = getSideChainTemplateIndexFromName(SCTnames[i]);
+	    }
+	    if (index==-1) {
+	      fprintf(stderr, "Could not find SideChainTemplateIndex for <%s>\n", SCTnames[i]);
+	      stop("missing side chain template");
+	    }
+	    chain->aa[i + 1].sideChainTemplateIndex = index;
+
+	    if (str_without_separator[i]=='o')
+	      str_without_separator[i] = tolower(_AASCRotTable[index].coarse_type[0]);
+	  chain->aa[i + 1].id = (str_without_separator[i] & COD) | 0x40;
+	  chain->aa[i + 1].etc = (str_without_separator[i] & ~COD);
+
+	    if (str_without_separator[i]=='O')
+	      str_without_separator[i] = toupper(_AASCRotTable[index].coarse_type[0]);
+
+	    if (str_without_separator[i]=='?') {
+		char msg[254];
+		sprintf(msg, "rotamer entry %s has no default coarse potential assigned, cannot use x<> for this entry\n",
+			SCTnames[i]);
+		stop(msg);
+	    }
+	    printf("%c<%s> got Sidechain template index %d\n", chain->aa[i+1].id, SCTnames[i], chain->aa[i+1].sideChainTemplateIndex);
+	  } else {
+	    chain->aa[i + 1].sideChainTemplateIndex = getSideChainTemplateIndexFromIDchar(chain->aa[i + 1].id);
+	    printf("%c got Sidechain template index %d\n", chain->aa[i+1].id, chain->aa[i+1].sideChainTemplateIndex);
+	  }
+	  
+	  if (chain->aa[i + 1].sideChainTemplateIndex==-1) {
+	    if (chain->aa[i + 1].id!='A' && chain->aa[i + 1].id!='G') {
+	      fprintf(stderr, "Could not find SideChainTemplateIndex for amino acid %c\n", chain->aa[i + 1].id);
+	      //stop("Failed to find SideChainTemplateIndex for amino acid");
+	    }
+	  }
+	  //fputc(str_without_separator[i], stderr);
 	}
 	if (chain_ids) free(chain_ids);
 
@@ -1328,7 +1354,14 @@ int fullAApdbrecord( AA *a, int j, model_params *mod_params, FILE *outfile)
     char  atname[5];
     char fmt[] = "ATOM  %5d %4s XAA A9999    %8.3f%8.3f%8.3f\n";
     //fprintf(stderr,"%d ",a->chainid);
-    sprintf(fmt + 14, "%3s %c%4d", aa123(a->id), 'A' + a->chainid - 1, a->num & 0xFFF);
+    //sprintf(fmt + 14, "%3s %c%4d", aa123(a->id), 'A' + a->chainid - 1, a->num & 0xFFF);
+    if (strlen(_AASCRotTable[a->sideChainTemplateIndex].name)==3) {
+      strcpy(fmt, "ATOM  %5d %4s XAA A9999    %8.3f%8.3f%8.3f\n");
+      sprintf(fmt + 14, "%3s %c%4d", _AASCRotTable[a->sideChainTemplateIndex].name, 'A' + a->chainid - 1, a->num & 0xFFF);
+    } else if (strlen(_AASCRotTable[a->sideChainTemplateIndex].name)==4) {
+      strcpy(fmt, "ATOM  %5d %4s XAAAA9999    %8.3f%8.3f%8.3f\n");
+      sprintf(fmt + 14, "%4s%c%4d", _AASCRotTable[a->sideChainTemplateIndex].name, 'A' + a->chainid - 1, a->num & 0xFFF);
+    }
     fmt[23] = ' '; //icode?? MS
     //printf("%3s %c%4d ", aa123(a->id), 'A' + a->chainid - 1, a->num & 0xFFF);
     fprintf(outfile,fmt, ++j, " N  ", a->n[0], a->n[1], a->n[2]);
@@ -1342,7 +1375,7 @@ int fullAApdbrecord( AA *a, int j, model_params *mod_params, FILE *outfile)
         fprintf(outfile,fmt, ++j, " H  ", a->h[0], a->h[1], a->h[2]);
 
     if (a->sideChainTemplateIndex>=0) {
-        buildSideChain(a, &coords);
+      buildSideChain(a, (float *)&coords);
         for (i = 0; i < nbAtoms; i++) {
 	  strncpy(atname, _AASCRotTable[a->sideChainTemplateIndex].atnames + i*5, 4);
 	  atname[4] = '\0';
@@ -1910,6 +1943,7 @@ static double repair_multichain( Chain *chain1, Chain *chain2) {
 
 }
 
+#ifdef NOTUSED
 /* minimally adjust coordinates to better equalize Ca-Ca distances */
 // TODO: multi-chain proteins
 static double repair( Chain *chain1, Chain *chain2)
@@ -2106,6 +2140,7 @@ static double repair( Chain *chain1, Chain *chain2)
 
 	return rmse;
 }
+#endif
 
 /* parsing ATOM entries from a PDB file for initialization
 returning the number of parsed amino acids */
@@ -2287,8 +2322,16 @@ void mark_fixed_aa_from_file(Chain *chain, simulation_params *sim_params) {
 
   fprintf(stderr,"marking fixed amino acids from file %s\n",(sim_params->protein_model).fixed_aalist_file);
 
-  FILE *fptr = fopen((sim_params->protein_model).fixed_aalist_file, "r");
-  if (!fptr) stop("mark_fixed_aa_from_file: problems while opening constraint file");
+  char buffer[254];
+  strcpy(buffer, sim_params->target_folder);
+  strcat(buffer, (sim_params->protein_model).fixed_aalist_file);
+  //FILE *fptr = fopen((sim_params->protein_model).fixed_aalist_file, "r");
+  FILE *fptr = fopen(buffer, "r");
+  if (!fptr) {
+    char msg[512];
+    sprintf(msg, "mark_fixed_aa_from_file: problems while opening constraint file %s", buffer);
+    stop(msg);
+  }
 
   fprintf(stderr, "Fixing amino acids:");
   int next;
@@ -2314,9 +2357,17 @@ void mark_constrained_aa_from_file(Chain *chain, simulation_params *sim_params) 
   if ((sim_params->protein_model).external_constrained_aalist_file) {
     fprintf(stderr,"1marking constrained amino acids from file %s\n",(sim_params->protein_model).external_constrained_aalist_file);
 
-    FILE *fptr = fopen((sim_params->protein_model).external_constrained_aalist_file, "r");
-    if (!fptr) stop("problems while opening constraint file");
-  
+    char buffer[254];
+    strcpy(buffer, sim_params->target_folder);
+    strcat(buffer, (sim_params->protein_model).external_constrained_aalist_file);
+    
+    //FILE *fptr = fopen((sim_params->protein_model).external_constrained_aalist_file, "r");
+    FILE *fptr = fopen(buffer, "r");
+    if (!fptr) {
+      char msg[512];
+      sprintf(msg, "problem while opening file %s", buffer);
+      stop(msg);
+    }
     fprintf(stderr, "Constraining amino acids:");
     int next;
     while (fscanf(fptr,"%d",&next) > 0) {
