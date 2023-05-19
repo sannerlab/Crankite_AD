@@ -179,11 +179,11 @@ static void calculate_aa_chirality(AA *a) {
 
 	/* dextro amino acids have negative q of about -2.5 */
 	if (-4.0 < q && q < -1.0 && p < 4.0) {
-		fprintf(stderr, "Dextro residue   %s %5d : %g %g\n",
-			aa123(a->id), a->num, sqrt(p), q);
+		fprintf(stderr, "DEXTRO residue %c %6s %5d : %g %g\n",
+			a->id, _AASCRotTable[a->sideChainTemplateIndex].name, a->num, sqrt(p), q);
 		a->etc &= ~LEV;
 	} else {
-	  fprintf(stderr, "LEVO residue   %s %5d : %g %g\n",aa123(a->id), a->num, sqrt(p), q);
+	  fprintf(stderr, "LEVO   residue %c %6s %5d : %g %g\n",a->id, _AASCRotTable[a->sideChainTemplateIndex].name, a->num, sqrt(p), q);
 	}
 }
 
@@ -987,6 +987,7 @@ void build_peptide_from_sequence(Chain * chain, Chaint *chaint, char *str, simul
 	  if (dAA[i]==1) {
 	    chain->aa[i + 1].etc &= ~LEV; /* make it dextro */
 	  }
+	  // printf("FOFO dAA[%d] == %d etc %d %c\n", i, dAA[i], chain->aa[i + 1].etc, chain->aa[i + 1].id);
 	  
 	  if (SCTnames[i]!=NULL) {
 	    // we have a template for sidechain rotamers
@@ -1006,22 +1007,26 @@ void build_peptide_from_sequence(Chain * chain, Chaint *chaint, char *str, simul
 
 	    if (str_without_separator[i]=='o')
 	      str_without_separator[i] = tolower(_AASCRotTable[index].coarse_type[0]);
-	  chain->aa[i + 1].id = (str_without_separator[i] & COD) | 0x40;
-	  chain->aa[i + 1].etc = (str_without_separator[i] & ~COD);
 
 	    if (str_without_separator[i]=='O')
 	      str_without_separator[i] = toupper(_AASCRotTable[index].coarse_type[0]);
 
-	    if (str_without_separator[i]=='?') {
+	    if (str_without_separator[i]=='o') {
 		char msg[254];
 		sprintf(msg, "rotamer entry %s has no default coarse potential assigned, cannot use x<> for this entry\n",
 			SCTnames[i]);
 		stop(msg);
 	    }
-	    printf("%c<%s> got Sidechain template index %d\n", chain->aa[i+1].id, SCTnames[i], chain->aa[i+1].sideChainTemplateIndex);
+	    if (dAA[i]==0)
+	      printf(" %c<%s> got Sidechain template index %d %d\n", chain->aa[i+1].id, SCTnames[i], chain->aa[i+1].sideChainTemplateIndex, chain->aa[i+1].etc);
+	    else
+	      printf("&%c<%s> got Sidechain template index %d %d\n", chain->aa[i+1].id, SCTnames[i], chain->aa[i+1].sideChainTemplateIndex, chain->aa[i+1].etc);
 	  } else {
 	    chain->aa[i + 1].sideChainTemplateIndex = getSideChainTemplateIndexFromIDchar(chain->aa[i + 1].id);
-	    printf("%c got Sidechain template index %d\n", chain->aa[i+1].id, chain->aa[i+1].sideChainTemplateIndex);
+	    if (dAA[i]==0)
+	      printf(" %c got Sidechain template index %d %d\n", chain->aa[i+1].id, chain->aa[i+1].sideChainTemplateIndex, chain->aa[i+1].etc);
+	    else
+	      printf("&%c got Sidechain template index %d %d\n", chain->aa[i+1].id, chain->aa[i+1].sideChainTemplateIndex, chain->aa[i+1].etc);
 	  }
 	  
 	  if (chain->aa[i + 1].sideChainTemplateIndex==-1) {
@@ -1345,24 +1350,39 @@ static double psi_angle(struct AA *a, triplet xct)
 /* Printing an amino acid residue in PDB format */
 int fullAApdbrecord( AA *a, int j, model_params *mod_params, FILE *outfile)
 {
-    int i, nbAtoms;
+  int i, nbAtoms, len;
+    char *name;
     if (a->sideChainTemplateIndex>=0)
         nbAtoms = _AASCRotTable[a->sideChainTemplateIndex].nbAtoms;
     else
         nbAtoms = 1;
     float coords[nbAtoms][3];
-    char  atname[5];
+    char  atname[5], resname[5];
+
     char fmt[] = "ATOM  %5d %4s XAA A9999    %8.3f%8.3f%8.3f\n";
+
     //fprintf(stderr,"%d ",a->chainid);
     //sprintf(fmt + 14, "%3s %c%4d", aa123(a->id), 'A' + a->chainid - 1, a->num & 0xFFF);
-    if (strlen(_AASCRotTable[a->sideChainTemplateIndex].name)==3) {
+    name = _AASCRotTable[a->sideChainTemplateIndex].name;
+    if (strcmp(&name[strlen(name)-2], "_D")==0) {
+      if ((strlen(name)-2) < 4) len = strlen(name)-2;
+      else len=4;
+      strncpy(resname, _AASCRotTable[a->sideChainTemplateIndex].name, len);
+    } else {
+      if (strlen(name) < 4) len = strlen(name);
+      else len=4;
+      strncpy(resname, _AASCRotTable[a->sideChainTemplateIndex].name, len);
+    }
+    
+    if (strlen(resname)==3) {
       strcpy(fmt, "ATOM  %5d %4s XAA A9999    %8.3f%8.3f%8.3f\n");
-      sprintf(fmt + 14, "%3s %c%4d", _AASCRotTable[a->sideChainTemplateIndex].name, 'A' + a->chainid - 1, a->num & 0xFFF);
-    } else if (strlen(_AASCRotTable[a->sideChainTemplateIndex].name)==4) {
+      sprintf(fmt + 14, "%3s %c%4d", resname, 'A' + a->chainid - 1, a->num & 0xFFF);
+    } else if (strlen(resname)==4) {
       strcpy(fmt, "ATOM  %5d %4s XAAAA9999    %8.3f%8.3f%8.3f\n");
-      sprintf(fmt + 14, "%4s%c%4d", _AASCRotTable[a->sideChainTemplateIndex].name, 'A' + a->chainid - 1, a->num & 0xFFF);
+      sprintf(fmt + 14, "%4s%c%4d", resname, 'A' + a->chainid - 1, a->num & 0xFFF);
     }
     fmt[23] = ' '; //icode?? MS
+    printf("FOFO len=%d resname=[%s] fmt=[%s]\m", len, resname, fmt);
     //printf("%3s %c%4d ", aa123(a->id), 'A' + a->chainid - 1, a->num & 0xFFF);
     fprintf(outfile,fmt, ++j, " N  ", a->n[0], a->n[1], a->n[2]);
     fprintf(outfile,fmt, ++j, " CA ", a->ca[0], a->ca[1], a->ca[2]);
