@@ -893,8 +893,9 @@ char *read_options(int argc, char *argv[], simulation_params *sim_params)
 	// check that the data folder contains the required files
 	char msg[254], buffer[254];
 	FILE *f;
+	DIR* dir;
 
-	DIR* dir = opendir(sim_params->data_folder);
+	dir = opendir(sim_params->data_folder);
 	if (dir) {	  /* Directory exists. */
 	  closedir(dir);
 	} else if (ENOENT == errno) {
@@ -940,6 +941,22 @@ char *read_options(int argc, char *argv[], simulation_params *sim_params)
 	  printf("found %d rotamers in %s\n", nbrot, sim_params->rlfullnames[rli]);
 	  nbCanAA += nbrot;
 	  rli++;
+	}
+
+	if (sim_params->target_folder == NULL) {
+	  sprintf(msg, "No target folder specify please use -T option to provide target data");
+	  stop(msg);
+	}
+	dir = opendir(sim_params->target_folder);
+	if (dir) {	  /* Directory exists. */
+	  closedir(dir);
+	} else if (ENOENT == errno) {
+	  sprintf(msg, "data folder %s does not exist", sim_params->target_folder);
+	  stop(msg);
+	} else {
+	  sprintf(msg, "couldn't open data folder %s", sim_params->target_folder);
+	  stop(msg);
+	  /* opendir() failed for some other reason. */
 	}
 
 	strcpy(buffer, sim_params->target_folder);
