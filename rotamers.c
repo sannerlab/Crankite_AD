@@ -86,28 +86,29 @@ int countRotamers(char *filename) {
 // structure
 int getRotamerForAA(FILE *in_file, struct _AASCRot *aarot, char *aaname)
 {
-  char line[256], coarsePot[20];
+  char line[512], coarsePot[20];
   int firstNonSpace=0;
   int read;
+  char *fgetret;
   
-  while ((read = fgets(line, sizeof(line), in_file)) != -1) {
-    //printf("Retrieved line of length %zu:\n", read);
-    //printf("%s", line);
-    if (read==0) {
-      printf("failed read %s\n", line);
+  fgetret = fgets(line, sizeof(line), in_file);
+  while ((fgetret != NULL)) {
+    /* printf("Retrieved line %s:\n", line); */
+    /* printf("%s", line); */
+    if (strlen(line)==0) {
+      /* printf("failed read %s\n", line); */
       return 0; // failed to read
     }
     for (firstNonSpace=0; line[firstNonSpace]==' '; firstNonSpace++) {};
-    if (line[firstNonSpace]=='/') continue;
-    if (strlen(&line[firstNonSpace])==0) continue;
     if (strncmp(&line[firstNonSpace], "rotamer", 7)==0) break;
+    fgetret = fgets(line, sizeof(line), in_file);
   }
   // read rotamer declaration line
   read = sscanf(&line[firstNonSpace], "rotamer %s %s %d %d", aaname, coarsePot, &aarot->nbRot, &aarot->nbAtoms);
   // allocate memory for rotamer name, atom names, types, charges and coordinates pointer for
   // rotamers
   aarot->name = (char *)malloc((strlen(aaname)+1)*sizeof(char));
-  aarot->rotProbas = (double *)malloc(aarot->nbAtoms*sizeof(double));
+  aarot->rotProbas = (double *)malloc(aarot->nbRot*sizeof(double));
   aarot->coarse_type = (char *)malloc((strlen(coarsePot)+1)*sizeof(char));
   aarot->atypes = (int *)malloc(aarot->nbAtoms*sizeof(int));
   aarot->charges = (double *)malloc(aarot->nbAtoms*sizeof(double));
@@ -118,7 +119,7 @@ int getRotamerForAA(FILE *in_file, struct _AASCRot *aarot, char *aaname)
   strcpy(aarot->name, aaname); // rotamer name
   strcpy(aarot->coarse_type, coarsePot); // rotamer name
 
-  // read the rotamer probabilies
+  // read the rotamer probabilities
   for (int i=0; i<aarot->nbRot; i++) {
     read = fscanf(in_file, "%lf", &aarot->rotProbas[i]);
     if (read!=1) return 0;
@@ -126,7 +127,7 @@ int getRotamerForAA(FILE *in_file, struct _AASCRot *aarot, char *aaname)
   fscanf(in_file, "%c", line); while (line[0]!='\n') fscanf(in_file, "%c", line); // get rid of trailing spaces and NL
 
   // read the atom types
-  read = fgets(line, sizeof(line), in_file);
+  fgetret = fgets(line, sizeof(line), in_file);
   char *p = NULL;
   p = strtok(line, " ");
   if (p != NULL) p[strcspn(p, "\r\n")] = 0; // replace LF, CR, CRLF, LFCR, ... with 0
@@ -182,8 +183,10 @@ int getRotamerForAA(FILE *in_file, struct _AASCRot *aarot, char *aaname)
     aarot->coords[i] = c;
   }
 
-  /* printf("found rotamer %ld %s %d %d\n", read, aaname, aarot->nbRot,  aarot->nbAtoms); */
+  /* printf("found rotamer %s %d %d\n", aaname, aarot->nbRot,  aarot->nbAtoms); */
   /* printf("    "); */
+  /* for (int i=0; i<aarot->nbRot; i++) printf(" %f ", aarot->rotProbas[i]); */
+  /* printf("\n    "); */
   /* for (int i=0; i<aarot->nbAtoms; i++) printf(" %d ", aarot->atypes[i]); */
   /* printf("\n    "); */
   /* for (int i=0; i<aarot->nbAtoms; i++) printf("%lf ", aarot->charges[i]); */
@@ -197,7 +200,7 @@ int initialize_AASCRotTable_from_file(char *filename, int lastIndex)
 {
   /* create _AASCRotTable for 20 standard amino acids */
   int i=0, retval;
-  char aaname[] = "UNK";
+  char aaname[] = "UNK                                                ";
 
   int nbRot = countRotamers(filename);
 
@@ -209,9 +212,9 @@ int initialize_AASCRotTable_from_file(char *filename, int lastIndex)
   for (i=0; i<nbRot; i+=1) {
     retval = getRotamerForAA(in_file, &_AASCRotTable[lastIndex+i], &aaname[0]);
     if (retval==1) {
-      printf("loaded rotamer %4s at index %3d from %s\n", aaname, lastIndex+i, filename);
+      printf("loaded rotamer %6s at index %3d from %s\n", aaname, lastIndex+i, filename);
     } else {
-      printf("Error: failed to load rotamer %s (index %d) from file %s\n",aaname, i, filename);
+      printf("Error: failed to load rotamer %s (index %d) from file %s\n", aaname, i, filename);
       exit(-1);
     }
   }
