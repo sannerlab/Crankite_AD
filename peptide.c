@@ -1382,7 +1382,7 @@ int fullAApdbrecord( AA *a, int j, model_params *mod_params, FILE *outfile)
       sprintf(fmt + 14, "%4s%c%4d", resname, 'A' + a->chainid - 1, a->num & 0xFFF);
     }
     fmt[23] = ' '; //icode?? MS
-    printf("FOFO len=%d resname=[%s] fmt=[%s]\m", len, resname, fmt);
+    //printf("FOFO len=%d resname=[%s] fmt=[%s]\n", len, resname, fmt);
     //printf("%3s %c%4d ", aa123(a->id), 'A' + a->chainid - 1, a->num & 0xFFF);
     fprintf(outfile,fmt, ++j, " N  ", a->n[0], a->n[1], a->n[2]);
     fprintf(outfile,fmt, ++j, " CA ", a->ca[0], a->ca[1], a->ca[2]);
