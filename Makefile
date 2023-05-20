@@ -15,7 +15,7 @@ ifeq ($(OS), Linux)
 	ifneq ($(shell which mpicc),)
 		MPICC = mpicc
 		MPILDFLAGS = $(LDFLAGS)
-		ALL := $(ALL) peptmpi
+		ALL := $(ALL)
 	endif
 endif
 
@@ -25,7 +25,7 @@ ifeq ($(OS), Darwin)
 	ifneq ($(shell which mpicc),)
 		MPICC = mpicc
 		MPILDFLAGS = $(LDFLAGS)
-		ALL := $(ALL) peptmpi
+		ALL := $(ALL)
 	endif
 endif
 
@@ -34,7 +34,7 @@ ifeq ($(OS), SunOS)
 	ifneq ($(shell which mpcc),)
 		MPICC = mpcc
 		MPILDFLAGS = -lmpi $(LDFLAGS)
-		ALL := $(ALL) peptmpi
+		ALL := $(ALL)
 	endif
 endif
 
