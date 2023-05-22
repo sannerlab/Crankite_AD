@@ -1360,30 +1360,48 @@ int fullAApdbrecord( AA *a, int j, model_params *mod_params, FILE *outfile)
     char  atname[5], resname[5];
 
     char fmt[] = "ATOM  %5d %4s XAA A9999    %8.3f%8.3f%8.3f\n";
+	char tmp[255];
 
     //fprintf(stderr,"%d ",a->chainid);
     //sprintf(fmt + 14, "%3s %c%4d", aa123(a->id), 'A' + a->chainid - 1, a->num & 0xFFF);
     name = _AASCRotTable[a->sideChainTemplateIndex].name;
-    if (strcmp(&name[strlen(name)-2], "_D")==0) {
-      if ((strlen(name)-2) < 4) len = strlen(name)-2;
-      else len=4;
-      strncpy(resname, _AASCRotTable[a->sideChainTemplateIndex].name, len);
-    } else {
-      if (strlen(name) < 4) len = strlen(name);
-      else len=4;
-      strncpy(resname, _AASCRotTable[a->sideChainTemplateIndex].name, len);
-    }
+	len = strlen(name);
+	if (strcmp(&name[strlen(name)-2], "_D")==0) len -= 2;
+	strncpy(resname, _AASCRotTable[a->sideChainTemplateIndex].name, len);
+	resname[len] = '\0';
+	// MS : bug removal for resname size 5/22/23>>
+	if (strlen(resname)==3) {
+		strcpy(fmt, "ATOM  %5d %4s ");
+		sprintf(tmp, "%3s %c%4d",resname, 'A' + a->chainid - 1, a->num & 0xFFF);
+		strcat(fmt, tmp);
+		strcat(fmt, "    %8.3f%8.3f%8.3f\n");
+	} else if  (strlen(resname)==4) {
+		strcpy(fmt, "ATOM  %5d %4s ");
+		sprintf(tmp, "%4s%c%4d",resname, 'A' + a->chainid - 1, a->num & 0xFFF);
+		strcat(fmt, tmp);
+		strcat(fmt, "    %8.3f%8.3f%8.3f\n");
+	}
+	// if (strcmp(&name[strlen(name)-2], "_D")==0) {
+    //   if ((strlen(name)-2) < 4) len = strlen(name)-2;
+    //   else len=4;
+    //   strncpy(resname, _AASCRotTable[a->sideChainTemplateIndex].name, len);
+    // } else {
+    //   if (strlen(name) < 4) len = strlen(name);
+    //   else len=4;
+    //   strncpy(resname, _AASCRotTable[a->sideChainTemplateIndex].name, len);
+    // }
     
-    if (strlen(resname)==3) {
-      strcpy(fmt, "ATOM  %5d %4s XAA A9999    %8.3f%8.3f%8.3f\n");
-      sprintf(fmt + 14, "%3s %c%4d", resname, 'A' + a->chainid - 1, a->num & 0xFFF);
-    } else if (strlen(resname)==4) {
-      strcpy(fmt, "ATOM  %5d %4s XAAAA9999    %8.3f%8.3f%8.3f\n");
-      sprintf(fmt + 14, "%4s%c%4d", resname, 'A' + a->chainid - 1, a->num & 0xFFF);
-    }
-    fmt[23] = ' '; //icode?? MS
+    // if (strlen(resname)==3) {
+    //   strcpy(fmt, "ATOM  %5d %4s XAA A9999    %8.3f%8.3f%8.3f\n");
+    //   sprintf(fmt + 14, "%3s %c%4d", resname, 'A' + a->chainid - 1, a->num & 0xFFF);
+    // } else if (strlen(resname)==4) {
+    //   strcpy(fmt, "ATOM  %5d %4s XAAAA9999    %8.3f%8.3f%8.3f\n");
+    //   sprintf(fmt + 14, "%4s%c%4d", resname, 'A' + a->chainid - 1, a->num & 0xFFF);
+    // }
+    // fmt[23] = ' '; //icode?? MS
     //printf("FOFO len=%d resname=[%s] fmt=[%s]\n", len, resname, fmt);
     //printf("%3s %c%4d ", aa123(a->id), 'A' + a->chainid - 1, a->num & 0xFFF);
+	// MS : bug removal for resname size 5/22/23<<
     fprintf(outfile,fmt, ++j, " N  ", a->n[0], a->n[1], a->n[2]);
     fprintf(outfile,fmt, ++j, " CA ", a->ca[0], a->ca[1], a->ca[2]);
     fprintf(outfile,fmt, ++j, " C  ", a->c[0], a->c[1], a->c[2]);
