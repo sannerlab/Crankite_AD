@@ -1364,7 +1364,8 @@ int fullAApdbrecord( AA *a, int j, model_params *mod_params, FILE *outfile)
 
     //fprintf(stderr,"%d ",a->chainid);
     //sprintf(fmt + 14, "%3s %c%4d", aa123(a->id), 'A' + a->chainid - 1, a->num & 0xFFF);
-    name = _AASCRotTable[a->sideChainTemplateIndex].name;
+    if (a->sideChainTemplateIndex>=0) {
+	name = _AASCRotTable[a->sideChainTemplateIndex].name;
 	len = strlen(name);
 	if (strcmp(&name[strlen(name)-2], "_D")==0) len -= 2;
 	strncpy(resname, _AASCRotTable[a->sideChainTemplateIndex].name, len);
@@ -1381,6 +1382,10 @@ int fullAApdbrecord( AA *a, int j, model_params *mod_params, FILE *outfile)
 		strcat(fmt, tmp);
 		strcat(fmt, "    %8.3f%8.3f%8.3f\n");
 	}
+    } else {            //fprintf(stderr,"%d ",a->chainid);
+        sprintf(fmt + 14, "%3s %c%4d", aa123(a->id), 'A' + a->chainid - 1, a->num & 0xFFF);
+        fmt[23] = ' ';
+    }
 	// if (strcmp(&name[strlen(name)-2], "_D")==0) {
     //   if ((strlen(name)-2) < 4) len = strlen(name)-2;
     //   else len=4;
