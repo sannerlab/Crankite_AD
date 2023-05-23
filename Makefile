@@ -11,7 +11,7 @@ LDFLAGS_DEBUG = -lm
 ifeq ($(OS), Linux)
 	CFLAGS = -std=c99 -Wall -O2 #-Wno-unused-result 
 	CFLAGS_DEBUG = -std=c99 -Wall -O0 -g -DDEBUG #-Wno-unused-result -g
-	CFLAGS = -std=c99 -Wall -O0 -g -DDEBUG #-Wno-unused-result -g
+	CFLAGS = -std=c99 -Wall -O2 -g -DDEBUG #-Wno-unused-result -g
 	ifneq ($(shell which mpicc),)
 		MPICC = mpicc
 		MPILDFLAGS = $(LDFLAGS)
