@@ -921,7 +921,7 @@ char *read_options(int argc, char *argv[], simulation_params *sim_params)
 	// build full names with paths for system rotamer libraries
 	int rli;
 	for (rli=0; rli < sim_params->nbRotLibs; rli++) {
-	  sim_params->rlfullnames[rli] = malloc(sizeof(char)*(strlen(sim_params->data_folder)+12+strlen(sim_params->rotamer_libs[rli])));
+	  sim_params->rlfullnames[rli] = malloc(sizeof(char)*(strlen(sim_params->data_folder)+13+strlen(sim_params->rotamer_libs[rli])));
 	  sprintf(sim_params->rlfullnames[rli], "%srotamers%c%s.lib", sim_params->data_folder, osSep, sim_params->rotamer_libs[rli]);
 	  f = fopen(sim_params->rlfullnames[rli], "r");
 	  if (f == NULL) {
