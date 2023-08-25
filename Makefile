@@ -1,17 +1,17 @@
 ALL = CrankiteAD_Linux-x86_64_1.1
 
 OS = $(shell uname -s)
-CFLAGS = -std=c99 -O2 # -D_GNU_SOURCE #-fgnu89-inline
+CFLAGS = -std=c99 -O3 # -D_GNU_SOURCE #-fgnu89-inline
 CPP=g++
-CPPFLAGS = -Wall -O2
+CPPFLAGS = -Wall -O3
 OPENMPFLAGS = -fopenmp
 LDFLAGS = -lm
 LDFLAGS_DEBUG = -lm
 
 ifeq ($(OS), Linux)
-	CFLAGS = -std=c99 -Wall -O2 #-Wno-unused-result 
+	CFLAGS = -std=c99 -Wall -O3 #-Wno-unused-result 
 	CFLAGS_DEBUG = -std=c99 -Wall -O0 -g -DDEBUG #-Wno-unused-result -g
-	CFLAGS = -std=c99 -Wall -O2 -g -DDEBUG #-Wno-unused-result -g
+	CFLAGS = -std=c99 -Wall -O3 -g -DDEBUG #-Wno-unused-result -g
 	ifneq ($(shell which mpicc),)
 		MPICC = mpicc
 		MPILDFLAGS = $(LDFLAGS)
