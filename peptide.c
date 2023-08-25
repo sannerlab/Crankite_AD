@@ -179,11 +179,20 @@ static void calculate_aa_chirality(AA *a) {
 
 	/* dextro amino acids have negative q of about -2.5 */
 	if (-4.0 < q && q < -1.0 && p < 4.0) {
-		fprintf(stderr, "DEXTRO residue %c %6s %5d : %g %g\n",
-			a->id, _AASCRotTable[a->sideChainTemplateIndex].name, a->num, sqrt(p), q);
-		a->etc &= ~LEV;
+	  if (a->sideChainTemplateIndex==-1)
+	    fprintf(stderr, "DEXTRO residue %c %6s %5d : %g %g\n",
+		    a->id, "None", a->num, sqrt(p), q);
+	  else {
+	    fprintf(stderr, "DEXTRO residue %c %6s %5d : %g %g\n",
+		    a->id, _AASCRotTable[a->sideChainTemplateIndex].name, a->num, sqrt(p), q);
+	  }
+	  a->etc &= ~LEV;
 	} else {
-	  fprintf(stderr, "LEVO   residue %c %6s %5d : %g %g\n",a->id, _AASCRotTable[a->sideChainTemplateIndex].name, a->num, sqrt(p), q);
+	  if (a->sideChainTemplateIndex==-1) {
+	    fprintf(stderr, "LEVO   residue %c %6s %5d : %g %g\n",a->id, "None", a->num, sqrt(p), q);
+	  } else {
+	    fprintf(stderr, "LEVO   residue %c %6s %5d : %g %g\n",a->id, _AASCRotTable[a->sideChainTemplateIndex].name, a->num, sqrt(p), q);
+	  }
 	}
 }
 
@@ -1011,12 +1020,13 @@ void build_peptide_from_sequence(Chain * chain, Chaint *chaint, char *str, simul
 	    if (str_without_separator[i]=='O')
 	      str_without_separator[i] = toupper(_AASCRotTable[index].coarse_type[0]);
 
-	    if (str_without_separator[i]=='o') {
+	    if (str_without_separator[i]=='o' || str_without_separator[i]=='O') {
 		char msg[254];
 		sprintf(msg, "rotamer entry %s has no default coarse potential assigned, cannot use x<> for this entry\n",
 			SCTnames[i]);
 		stop(msg);
 	    }
+	    chain->aa[i + 1].id = str_without_separator[i];
 	    if (dAA[i]==0)
 	      printf(" %c<%s> got Sidechain template index %d %d\n", chain->aa[i+1].id, SCTnames[i], chain->aa[i+1].sideChainTemplateIndex, chain->aa[i+1].etc);
 	    else
