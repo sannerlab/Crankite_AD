@@ -140,7 +140,7 @@ double clash(AA *a, model_params *mod_params)
 	if (mod_params->use_gamma_atoms != NO_GAMMA) {
 		if (a->etc & G__) {
 		   if ((rg = sidechain_vdw_radius(a->id,1,mod_params->sidechain_properties)) < 0.0) {
-		      fprintf(stderr,"Negative vdw radius for amino acid %c\n",a->id);
+		     fprintf(stderr,"Negative vdw radius for amino acid with ID %c num %d sidechainTemplInd %d\n",a->id, a->num, a->sideChainTemplateIndex);
 		      //exit(EXIT_FAILURE);
 		   } else {
 		      /* G__ -- O__ */
