@@ -179,11 +179,24 @@ static void calculate_aa_chirality(AA *a) {
 
 	/* dextro amino acids have negative q of about -2.5 */
 	if (-4.0 < q && q < -1.0 && p < 4.0) {
-		fprintf(stderr, "DEXTRO residue %c %6s %5d : %g %g\n",
+		if (a->sideChainTemplateIndex == -1){
+			fprintf(stderr, "DEXTRO residue %c %6s %5d : %g %g\n",
+			a->id, "None", a->num, sqrt(p), q);
+			a->etc &= ~LEV;
+		}
+		else {
+			fprintf(stderr, "DEXTRO residue %c %6s %5d : %g %g\n",
 			a->id, _AASCRotTable[a->sideChainTemplateIndex].name, a->num, sqrt(p), q);
-		a->etc &= ~LEV;
+			a->etc &= ~LEV;
+		}
+
 	} else {
-	  fprintf(stderr, "LEVO   residue %c %6s %5d : %g %g\n",a->id, _AASCRotTable[a->sideChainTemplateIndex].name, a->num, sqrt(p), q);
+		if (a->sideChainTemplateIndex == -1){
+	  		fprintf(stderr, "LEVO   residue %c %6s %5d : %g %g\n",a->id,"None", a->num, sqrt(p), q);
+		}
+		else{
+			fprintf(stderr, "LEVO   residue %c %6s %5d : %g %g\n",a->id, _AASCRotTable[a->sideChainTemplateIndex].name, a->num, sqrt(p), q);
+		}
 	}
 }
 

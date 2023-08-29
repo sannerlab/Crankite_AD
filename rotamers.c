@@ -28,6 +28,7 @@ int nbCanAA = 0;
 // get index of table entry for a given rotamer name
 int getSideChainTemplateIndexFromName(char *str) {
   for (int i=0; i<nbCanAA; i++) {
+    //printf("FUGU %s %d\n", str, i);
     if (strcmp(str, _AASCRotTable[i].name)==0) {
       //printf("FUGU %s %d\n", str, i);
       return i;
@@ -48,6 +49,7 @@ int getSideChainTemplateIndexFromIDchar(char id) {
   char *c = IDchars;
   for (int i=0; i<18; i++) {
     if (c[i]==id) {
+      //printf("FAGA %c %s %d\n", id, aanames[i]);
       int ind = getSideChainTemplateIndexFromName(aanames[i]);
       //printf("FAGA %c %s %d\n", id, aanames[i], ind);
       return ind;
