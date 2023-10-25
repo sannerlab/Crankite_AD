@@ -1014,19 +1014,19 @@ void build_peptide_from_sequence(Chain * chain, Chaint *chaint, char *str, simul
 	    }
 	    chain->aa[i + 1].sideChainTemplateIndex = index;
 
-	    if (str_without_separator[i]=='o')
-	      str_without_separator[i] = tolower(_AASCRotTable[index].coarse_type[0]);
-
-	    if (str_without_separator[i]=='O')
+	    if (str_without_separator[i]=='o') {
 	      str_without_separator[i] = toupper(_AASCRotTable[index].coarse_type[0]);
-
+	    }
+	    if (str_without_separator[i]=='O') {
+	      str_without_separator[i] = toupper(_AASCRotTable[index].coarse_type[0]);
+	    }
 	    if (str_without_separator[i]=='o' || str_without_separator[i]=='O') {
 		char msg[254];
 		sprintf(msg, "rotamer entry %s has no default coarse potential assigned, cannot use x<> for this entry\n",
 			SCTnames[i]);
 		stop(msg);
 	    }
-	    chain->aa[i + 1].id = str_without_separator[i];
+	    chain->aa[i + 1].id = (str_without_separator[i] & COD) | 0x40;//str_without_separator[i];
 	    if (dAA[i]==0)
 	      printf(" %c<%s> got Sidechain template index %d %d\n", chain->aa[i+1].id, SCTnames[i], chain->aa[i+1].sideChainTemplateIndex, chain->aa[i+1].etc);
 	    else
