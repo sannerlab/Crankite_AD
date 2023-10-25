@@ -75,10 +75,11 @@ char aa321(char *cod)
 /* Function converts id -> index */
 inline int convert_to_index(char id){
   int ans = id - 'A' + 1;
-  if(ans < 1 || ans > 26) return -1;
+  if(ans < 1 || ans > 26) {
+    return -1;
+  }
   return ans;	
 }
-
 
 /***********************************************************/
 /****         AMINO ACID  SIDE CHAIN PROPERTIES         ****/
@@ -322,8 +323,11 @@ int beta_gamma_dist(char id, int which_gamma, double *r, double *theta, sidechai
 		    fprintf(stderr,"Unknown value %d of which_gamma, must be 1 or 2.\n",which_gamma);
 		    return 1;
 		}
-    }
-	fprintf(stderr, "invalid amino acid character %c%d%d\n",id,isalpha(id),isupper(id));
+	}
+	char error_string[DEFAULT_LONG_STRING_LENGTH]="";
+	sprintf(error_string,"beta_gamma_dist: invalid amino acid character %c %d %d\n",id,isalpha(id),isupper(id));
+	stop(error_string);
+	//fprintf(stderr, "beta_gamma_dist: invalid amino acid character %c %d %d\n",id,isalpha(id),isupper(id));
     return 0;
 }
 
@@ -392,8 +396,11 @@ double sidechain_vdw_radius(char id, int which_gamma, sidechain_properties_ *sid
 			fprintf(stderr,"Unknown value %d of which_gamma, must be 1 or 2.\n",which_gamma);
 		}
 	}
+	char error_string[DEFAULT_LONG_STRING_LENGTH]="";
+	sprintf(error_string,"sidechain_vdw_radius: invalid amino acid character %c %d %d\n",id,isalpha(id),isupper(id));
+	stop(error_string);
 
-	fprintf(stderr, "invalid amino acid character %c%d%d\n",id,isalpha(id),isupper(id));
+	//fprintf(stderr, "sidechain_vdw_radius: invalid amino acid character %c%d%d\n",id,isalpha(id),isupper(id));
 	return 0.0;
 }
 
@@ -416,8 +423,11 @@ double sidechain_vdw_depth(char id, int which_gamma, sidechain_properties_ *side
 			fprintf(stderr,"Unknown value %d of which_gamma, must be 1 or 2.\n",which_gamma);
 		}
 	}
+	char error_string[DEFAULT_LONG_STRING_LENGTH]="";
+	sprintf(error_string,"sidechain_vdw_depth: invalid amino acid character %c %d %d\n",id,isalpha(id),isupper(id));
+	stop(error_string);
 
-	fprintf(stderr, "invalid amino acid character %c%d%d\n",id,isalpha(id),isupper(id));
+	//fprintf(stderr, "sidechain_vdw_depth: invalid amino acid character %c %d %d\n",id,isalpha(id),isupper(id));
 	return 0.0;
 }
 
@@ -441,8 +451,11 @@ double sidechain_vdw_depth_sqrt(char id, int which_gamma, sidechain_properties_ 
 			fprintf(stderr,"Unknown value %d of which_gamma, must be 1 or 2.\n",which_gamma);
 		}
 	}
+	char error_string[DEFAULT_LONG_STRING_LENGTH]="";
+	sprintf(error_string,"sidechain_vdw_depth_sqrt: invalid amino acid character %c %d %d\n",id,isalpha(id),isupper(id));
+	stop(error_string);
 
-	fprintf(stderr, "invalid amino acid character %c%d%d\n",id,isalpha(id),isupper(id));
+	//fprintf(stderr, "sidechain_vdw_depth_sqrt: invalid amino acid character %c %d %d\n",id,isalpha(id),isupper(id));
 	return 0.0;
 }
 
@@ -455,7 +468,10 @@ unsigned int hydrophobic_atoms_list(char id, sidechain_properties_ *sidechain_pr
 	if((i = convert_to_index(id)) != -1){ 
 	    return sidechain_properties[i].hydrophobic_atoms;
 	}
-	fprintf(stderr, "invalid amino acid character %c%d%d\n",id,isalpha(id),isupper(id));
+	char error_string[DEFAULT_LONG_STRING_LENGTH]="";
+	sprintf(error_string,"hydrophobic_atoms_list: invalid amino acid character %c %d %d\n",id,isalpha(id),isupper(id));
+	stop(error_string);
+	//fprintf(stderr, "hydrophobic_atoms_list: invalid amino acid character %c %d %d\n",id,isalpha(id),isupper(id));
 	return 0.0;
 }
 
@@ -480,7 +496,10 @@ double hydrophobic_contact_radius(char id, int atom, sidechain_properties_ *side
 			fprintf(stderr,"Unknown value %x of binary atom code, must be %x, %x or %x.\n",atom, CB_, G__, G2_);
 		}
 	}
-	fprintf(stderr, "invalid amino acid character %c%d%d\n",id,isalpha(id),isupper(id));
+	char error_string[DEFAULT_LONG_STRING_LENGTH]="";
+	sprintf(error_string,"invalid amino acid character %c %d %d\n",id,isalpha(id),isupper(id));
+	stop(error_string);
+	//fprintf(stderr, "invalid amino acid character %c %d %d\n",id,isalpha(id),isupper(id));
 	return 0.0;
 }
 
@@ -494,8 +513,11 @@ double charge(char id, sidechain_properties_ *sidechain_properties) {
 	if((i = convert_to_index(id)) != -1){ 
 	    return sidechain_properties[i].charged_atom_charge;
 	}
+	char error_string[DEFAULT_LONG_STRING_LENGTH]="";
+	sprintf(error_string,"charge: invalid amino acid character %c %d %d\n",id,isalpha(id),isupper(id));
+	stop(error_string);
 
-	fprintf(stderr, "invalid amino acid character %c%d%d\n",id,isalpha(id),isupper(id));
+	//fprintf(stderr, "charge: invalid amino acid character %c %d %d\n",id,isalpha(id),isupper(id));
 	return 0.0;
 }
 
@@ -514,8 +536,11 @@ int hbond_donor(char id, int atom, sidechain_properties_ *sidechain_properties) 
 	      return 0;
 	   }
 	}
+	char error_string[DEFAULT_LONG_STRING_LENGTH]="";
+	sprintf(error_string,"hbond_donor: invalid amino acid character %c %d %d\n",id,isalpha(id),isupper(id));
+	stop(error_string);
 
-	fprintf(stderr, "invalid amino acid character %c%d%d\n",id,isalpha(id),isupper(id));
+	//fprintf(stderr, "hbond_donor: invalid amino acid character %c %d %d\n",id,isalpha(id),isupper(id));
 	return 0;
 }
 
@@ -534,8 +559,11 @@ int hbond_acceptor(char id, int atom, sidechain_properties_ *sidechain_propertie
 	      return 0;
 	   }
 	}
+	char error_string[DEFAULT_LONG_STRING_LENGTH]="";
+	sprintf(error_string,"invalid amino acid character %c %d %d\n",id,isalpha(id),isupper(id));
+	stop(error_string);
 
-	fprintf(stderr, "invalid amino acid character %c%d%d\n",id,isalpha(id),isupper(id));
+	//fprintf(stderr, "hbond_acceptor: invalid amino acid character %c %d %d\n",id,isalpha(id),isupper(id));
 	return 0;
 }
 
@@ -549,8 +577,11 @@ double sidechain_hbond_donor_radius(char id, sidechain_properties_ *sidechain_pr
 	if((i = convert_to_index(id)) != -1){
 	   return sidechain_properties[i].hydrogen_bond_donor_radius;
 	}
+	char error_string[DEFAULT_LONG_STRING_LENGTH]="";
+	sprintf(error_string,"sidechain_hbond_donor_radius: invalid amino acid character %c %d %d\n",id,isalpha(id),isupper(id));
+	stop(error_string);
 
-	fprintf(stderr, "invalid amino acid character %c%d%d\n",id,isalpha(id),isupper(id));
+	//fprintf(stderr, "sidechain_hbond_donor_radius: invalid amino acid character %c %d %d\n",id,isalpha(id),isupper(id));
 	return 0.0;
 }
 
@@ -564,7 +595,10 @@ double sidechain_hbond_acceptor_radius(char id, sidechain_properties_ *sidechain
 	if((i = convert_to_index(id)) != -1){
 	   return sidechain_properties[i].hydrogen_bond_acceptor_radius;
 	}
+	char error_string[DEFAULT_LONG_STRING_LENGTH]="";
+	sprintf(error_string,"sidechain_hbond_acceptor_radius: invalid amino acid character %c %d %d\n",id,isalpha(id),isupper(id));
+	stop(error_string);
 
-	fprintf(stderr, "invalid amino acid character %c%d%d\n",id,isalpha(id),isupper(id));
+	//fprintf(stderr, "sidechain_hbond_acceptor_radius: invalid amino acid character %c %d %d\n",id,isalpha(id),isupper(id));
 	return 0.0;
 }
