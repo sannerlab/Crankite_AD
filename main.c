@@ -921,11 +921,12 @@ char *read_options(int argc, char *argv[], simulation_params *sim_params)
 	// build full names with paths for system rotamer libraries
 	int rli;
 	for (rli=0; rli < sim_params->nbRotLibs; rli++) {
-	  sim_params->rlfullnames[rli] = malloc(sizeof(char)*(strlen(sim_params->data_folder)+13+strlen(sim_params->rotamer_libs[rli])));
+	  // length of folder and library + 14 to account for "rotamer/" and ".lib" for security take more
+	  sim_params->rlfullnames[rli] = malloc(sizeof(char)*(strlen(sim_params->data_folder)+20+strlen(sim_params->rotamer_libs[rli])));
 	  sprintf(sim_params->rlfullnames[rli], "%srotamers%c%s.lib", sim_params->data_folder, osSep, sim_params->rotamer_libs[rli]);
 	  f = fopen(sim_params->rlfullnames[rli], "r");
 	  if (f == NULL) {
-	    sprintf(msg, "rotamer library %s not found in %s\n", sim_params->rlfullnames[rli], sim_params->data_folder);
+	    sprintf(msg, "rotamer library %s not found\n", sim_params->rlfullnames[rli]);
 	    stop(msg);
 	  } else {
 	    fclose(f);
